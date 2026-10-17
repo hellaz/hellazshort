@@ -52,7 +52,7 @@ export function errorHandler(error: Error, c: Context) {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'An internal error occurred',
+        message: error.message || 'An internal error occurred',
         details: {},
       },
     },

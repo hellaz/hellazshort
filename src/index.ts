@@ -160,9 +160,36 @@ app.get('/dashboard/login', async (c) => {
 
 // Dashboard - Setup page (moved from /setup to /dashboard/setup)
 app.get('/dashboard/setup', async (c) => {
+  if (!c.env.DB) {
+    return c.html(`
+      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:50px auto;padding:28px;background:#fef2f2;border:1px solid #f87171;border-radius:12px;color:#991b1b;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+        <h2 style="margin-top:0;">D1 Database Binding Missing</h2>
+        <p>The <code>DB</code> binding was not found on your Cloudflare Worker.</p>
+        <p>In Cloudflare Dashboard &gt; <strong>Workers &amp; Pages</strong> &gt; <strong>hellazshort</strong> &gt; <strong>Settings</strong> &gt; <strong>Bindings</strong>, add a D1 Database binding with variable name <strong>DB</strong> pointing to <strong>openshortlink-db</strong>.</p>
+      </div>
+    `, 500);
+  }
+
   // Check if users already exist
-  const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
-  const userCount = existingUsers?.count || 0;
+  let userCount = 0;
+  try {
+    const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+    userCount = existingUsers?.count || 0;
+  } catch (err: any) {
+    return c.html(`
+      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:50px auto;padding:28px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);color:#334155;">
+        <h2 style="color:#e11d48;margin-top:0;">Database Connection Error</h2>
+        <p>Could not query D1 database: <strong>${err.message}</strong></p>
+        <p>This usually happens when the <code>database_id</code> in <code>wrangler.toml</code> does not match the actual ID of your D1 database.</p>
+        <h3>How to fix:</h3>
+        <ol style="line-height:1.8;padding-left:20px;">
+          <li>In Cloudflare Dashboard, go to <strong>Storage &amp; Databases</strong> &gt; <strong>D1 SQL Database</strong>.</li>
+          <li>Click on <strong>openshortlink-db</strong> and copy the <strong>Database ID</strong>.</li>
+          <li>In <strong>Workers &amp; Pages</strong> &gt; <strong>hellazshort</strong> &gt; <strong>Settings</strong> &gt; <strong>Bindings</strong>, ensure D1 binding <strong>DB</strong> is connected to <strong>openshortlink-db</strong> (or update <code>database_id</code> in <code>wrangler.toml</code>).</li>
+        </ol>
+      </div>
+    `, 500);
+  }
 
   if (userCount > 0) {
     // Users exist, redirect to login
