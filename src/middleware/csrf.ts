@@ -35,7 +35,7 @@ export const csrfProtection = createMiddleware<{ Bindings: Env; Variables: Varia
         token = crypto.randomUUID();
         // Use secure flag in production or iframe mode
         const isProduction = c.env?.ENVIRONMENT === 'production';
-        const isIframe = process.env.ALLOW_IFRAME === 'true';
+        const isIframe = typeof process !== 'undefined' && process.env?.ALLOW_IFRAME === 'true';
         setCookie(c, CSRF_COOKIE_NAME, token, {
             path: '/',
             secure: isProduction || isIframe,
@@ -79,7 +79,7 @@ export const csrfProtection = createMiddleware<{ Bindings: Env; Variables: Varia
     }
 
     // In iframe preview mode, if third-party cookies are blocked, accept submitted token
-    if (process.env.ALLOW_IFRAME === 'true' && submittedToken) {
+    if (typeof process !== 'undefined' && process.env?.ALLOW_IFRAME === 'true' && submittedToken) {
         return next();
     }
 

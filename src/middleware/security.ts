@@ -19,7 +19,8 @@ export const securityHeaders = createMiddleware<{ Bindings: Env; Variables: Vari
     await next();
 
     // Prevent clickjacking (allow framing in dev/preview iframes when ALLOW_IFRAME is true)
-    if (process.env.ALLOW_IFRAME !== 'true') {
+    const allowIframe = typeof process !== 'undefined' && process.env?.ALLOW_IFRAME === 'true';
+    if (!allowIframe) {
       c.header('X-Frame-Options', 'DENY');
     }
 
@@ -43,7 +44,7 @@ export const securityHeaders = createMiddleware<{ Bindings: Env; Variables: Vari
     // A response that already carries its own CSP (e.g. the pixel interstitial, which must
     // load ad-platform scripts) keeps it — this default would otherwise overwrite it.
     if (!c.res.headers.has('Content-Security-Policy')) {
-        const frameAncestors = process.env.ALLOW_IFRAME === 'true' ? " frame-ancestors *;" : "";
+        const frameAncestors = allowIframe ? " frame-ancestors *;" : "";
         c.header(
             'Content-Security-Policy',
             `default-src 'self'; script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://cdn.jsdelivr.net;${frameAncestors}`
