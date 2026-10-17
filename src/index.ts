@@ -75,10 +75,11 @@ app.use('*', async (c, next) => {
   const isAdminRoute = path.startsWith('/dashboard') || path.startsWith('/api');
   
   // Exclude auth endpoints from CSRF (they create sessions, can't have CSRF token before login)
-  const isAuthEndpoint = path === '/api/auth/login' || 
-                         path === '/api/auth/register' ||
-                         path === '/api/auth/refresh' ||
-                         path === '/api/auth/mfa/verify';
+  const isAuthEndpoint = path.endsWith('/auth/login') || 
+                         path.endsWith('/auth/register') ||
+                         path.endsWith('/auth/refresh') ||
+                         path.endsWith('/auth/mfa/verify') ||
+                         path.endsWith('/auth/setup-auto');
   
   if (isAdminRoute && !isAuthEndpoint) {
     // Apply CSRF and security headers for dashboard/API routes
@@ -188,11 +189,27 @@ app.get('/dashboard', async (c) => {
   // Dynamic import - only loads dashboard code when accessed
   const { dashboardHtml } = await import('./views/dashboard');
   
-  // Check for auth cookie
+  // Check for auth cookie, auth header, or query token
   const cookieHeader = c.req.header('Cookie');
-  const token = cookieHeader?.match(/session_token=([^;]+)/)?.[1];
+  let token = cookieHeader?.match(/session_token=([^;]+)/)?.[1];
+  const url = new URL(c.req.url);
+  const queryToken = url.searchParams.get('token');
+  if (!token && queryToken) {
+    token = queryToken;
+  }
+  if (!token) {
+    const authHeader = c.req.header('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
 
   if (!token) {
+    const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+    if ((existingUsers?.count || 0) === 0) {
+      c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      return c.redirect('/dashboard/setup');
+    }
     c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     return c.redirect('/dashboard/login');
   }
@@ -201,6 +218,10 @@ app.get('/dashboard', async (c) => {
   c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   c.header('Pragma', 'no-cache');
   c.header('Expires', '0');
+  if (queryToken) {
+    const isProd = c.env.ENVIRONMENT === 'production';
+    c.header('Set-Cookie', `session_token=${token}; HttpOnly; ${isProd ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=3600`);
+  }
   const csrfToken = c.get('csrfToken') || '';
   const nonce = c.get('nonce') || '';
   return c.html(dashboardHtml(csrfToken, nonce));
@@ -340,9 +361,22 @@ app.get('*', async (c) => {
   }
 
   // Try to find domain and routing path
-  const result = await getDomainByRoutingPath(c.env, domain, path);
+  let result = await getDomainByRoutingPath(c.env, domain, path);
 
   if (!result) {
+    // If not found by exact hostname, try primary active domain (e.g. urlz.eu.org in dev or custom proxy)
+    const fallbackDomain = await c.env.DB.prepare(
+      `SELECT * FROM domains WHERE status = 'active' ORDER BY CASE WHEN normalized_domain_name = 'urlz.eu.org' THEN 0 ELSE 1 END, created_at ASC LIMIT 1`
+    ).first<import('./types').Domain>();
+    if (fallbackDomain) {
+      result = await getDomainByRoutingPath(c.env, fallbackDomain.domain_name, path);
+    }
+  }
+
+  if (!result) {
+    if (path === '/' || path === '') {
+      return c.redirect('/dashboard');
+    }
     return c.text('Not found', 404);
   }
 
@@ -375,7 +409,7 @@ app.get('*', async (c) => {
   }
 
   // Handle redirect (pass execution context for proper async tracking)
-  const redirectResponse = await handleRedirect(c.env, c.req.raw, domainObj, slug, c.executionCtx, matchedRoute);
+  const redirectResponse = await handleRedirect(c.env, c.req.raw, domainObj, slug, c.executionCtx as any, matchedRoute);
 
   return redirectResponse;
 });
@@ -457,7 +491,10 @@ function renderBrandedRootPage(domainName: string): string {
   <div class="card">
     <h1>🔗 ${safeDomain}</h1>
     <p>This is a URL shortener powered by <span class="domain">OpenShort.link</span>.</p>
-    <p>Short links on this domain redirect to their destinations. There's nothing to see here.</p>
+    <p>Short links on this domain redirect to their destinations.</p>
+    <div style="margin-top: 1.5rem;">
+      <a href="/dashboard" style="display: inline-block; padding: 0.65rem 1.4rem; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; color: #fff; text-decoration: none; font-weight: 600; transition: background 0.2s;">Open Dashboard &rarr;</a>
+    </div>
     <div class="footer">Powered by <a href="https://openshort.link" rel="noopener noreferrer">OpenShort.link</a></div>
   </div>
 </body>

@@ -267,8 +267,10 @@ export interface ContextUser {
   username?: string;
   email?: string;
   role: string;
-  global_access?: boolean;
+  global_access?: boolean | number;
   accessible_domain_ids?: string[];
+  created_at?: number;
+  updated_at?: number;
 }
 
 // Session type reference (defined in services/session.ts)

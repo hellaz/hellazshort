@@ -1,0 +1,19 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": ["eslint:recommended"],
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "rules": {
+    "no-unused-vars": "off",
+    "no-undef": "off",
+    "no-constant-condition": "off",
+    "no-empty": "off",
+    "no-useless-escape": "off",
+    "no-useless-catch": "off"
+  },
+  "ignorePatterns": ["node_modules/", "dist/", "openshortlink.sqlite*"]
+}

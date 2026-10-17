@@ -117,7 +117,8 @@ async function trackAuthFailure(env: Env, ip: string): Promise<void> {
 function getClientIp(c: Context<{ Bindings: Env; Variables: Variables }>): string | null {
   return c.req.header('cf-connecting-ip') || 
          c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
-         null;
+         c.req.header('x-real-ip') ||
+         '127.0.0.1';
 }
 
 export async function authMiddleware(c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) {

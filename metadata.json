@@ -1,0 +1,6 @@
+{
+  "name": "URLZ - Free URL Shortener",
+  "description": "Open-source Cloudflare-based link shortener and management platform",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

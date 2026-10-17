@@ -33,13 +33,14 @@ export const csrfProtection = createMiddleware<{ Bindings: Env; Variables: Varia
     // 2. If no token exists, generate a new one
     if (!token) {
         token = crypto.randomUUID();
-        // Use secure flag only in production (allows local dev over HTTP)
+        // Use secure flag in production or iframe mode
         const isProduction = c.env?.ENVIRONMENT === 'production';
+        const isIframe = process.env.ALLOW_IFRAME === 'true';
         setCookie(c, CSRF_COOKIE_NAME, token, {
             path: '/',
-            secure: isProduction,
+            secure: isProduction || isIframe,
             httpOnly: true,
-            sameSite: 'Strict',
+            sameSite: isIframe ? 'None' : 'Lax',
         });
     }
 
@@ -49,6 +50,11 @@ export const csrfProtection = createMiddleware<{ Bindings: Env; Variables: Varia
     // 4. Check if request method is safe (no CSRF check needed)
     const safeMethods = ['GET', 'HEAD', 'OPTIONS', 'TRACE'];
     if (safeMethods.includes(c.req.method)) {
+        return next();
+    }
+
+    // Requests with Bearer tokens or API keys are not subject to CSRF (not ambient credentials)
+    if (c.req.header('Authorization')?.startsWith('Bearer ') || c.req.header('X-API-Key')) {
         return next();
     }
 
@@ -70,6 +76,11 @@ export const csrfProtection = createMiddleware<{ Bindings: Env; Variables: Varia
                 // Ignore parsing errors - token will be null and fail validation
             }
         }
+    }
+
+    // In iframe preview mode, if third-party cookies are blocked, accept submitted token
+    if (process.env.ALLOW_IFRAME === 'true' && submittedToken) {
+        return next();
     }
 
     // 7. Validate token

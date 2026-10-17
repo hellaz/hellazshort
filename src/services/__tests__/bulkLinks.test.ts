@@ -25,7 +25,7 @@ const status = (raw: SqliteDb, id: string) => (raw.prepare('SELECT status FROM l
 
 async function run(env: any, body: unknown, actor: BulkActor = admin) {
   const parsed = parseBulkRequest(body);
-  if (!parsed.ok) throw new Error('unexpected 400: ' + parsed.message);
+  if (!parsed.ok) throw new Error('unexpected 400: ' + (parsed as any).message);
   return runBulk(env, actor, parsed.request);
 }
 

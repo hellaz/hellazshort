@@ -670,9 +670,9 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
 
   // Save all redirects
   await saveLinkRedirects(c.env, link.id, {
-    geo_redirects: validated.geo_redirects,
+    geo_redirects: validated.geo_redirects as any,
     device_redirects: validated.device_redirects,
-    city_redirects: validated.city_redirects,
+    city_redirects: validated.city_redirects as any,
     os_redirects: validated.os_redirects,
   });
 
@@ -824,7 +824,7 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
   if (validated.geo_redirects !== undefined) {
     // Clear existing and add new
     await clearAllGeoRedirects(c.env, id);
-    await saveLinkRedirects(c.env, id, { geo_redirects: validated.geo_redirects });
+    await saveLinkRedirects(c.env, id, { geo_redirects: validated.geo_redirects as any });
   }
 
   // Update device redirects if provided
@@ -836,7 +836,7 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
   // Update city redirects if provided
   if (validated.city_redirects !== undefined) {
     await clearAllCityRedirects(c.env, id);
-    await saveLinkRedirects(c.env, id, { city_redirects: validated.city_redirects });
+    await saveLinkRedirects(c.env, id, { city_redirects: validated.city_redirects as any });
   }
 
   // Update os redirects if provided
@@ -945,7 +945,7 @@ linksRouter.post('/bulk', authOrApiKeyMiddleware, requirePermission('edit_links'
   const body = await c.req.json();
   const parsed = parseBulkRequest(body);
   if (!parsed.ok) {
-    throw new HTTPException(400, { message: parsed.message });
+    throw new HTTPException(400, { message: (parsed as any).message });
   }
   const apiKey = (c as any).get?.('apiKey') as ApiKeyContext | undefined;
   const user = (c as any).get?.('user') as User | undefined;
