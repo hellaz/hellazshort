@@ -517,12 +517,12 @@ function renderBrandedRootPage(domainName: string): string {
 <body>
   <div class="card">
     <h1>🔗 ${safeDomain}</h1>
-    <p>This is a URL shortener powered by <span class="domain">OpenShort.link</span>.</p>
+    <p>This is a URL shortener powered by <span class="domain">URLZ</span>.</p>
     <p>Short links on this domain redirect to their destinations.</p>
     <div style="margin-top: 1.5rem;">
       <a href="/dashboard" style="display: inline-block; padding: 0.65rem 1.4rem; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; color: #fff; text-decoration: none; font-weight: 600; transition: background 0.2s;">Open Dashboard &rarr;</a>
     </div>
-    <div class="footer">Powered by <a href="https://openshort.link" rel="noopener noreferrer">OpenShort.link</a></div>
+    <div class="footer">Powered by <strong>URLZ</strong> &bull; Link Management</div>
   </div>
 </body>
 </html>`;

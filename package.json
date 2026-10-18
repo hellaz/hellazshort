@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
-    "build": "tsc --noEmit",
+    "build": "vite build",
     "dev:wrangler": "wrangler dev",
     "deploy": "npm run db:migrate && wrangler deploy",
     "deploy:only": "wrangler deploy",
@@ -50,8 +50,22 @@
   "dependencies": {
     "@hono/node-server": "^2.1.5",
     "@hono/zod-validator": "^0.7.6",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/express": "^5.0.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "chart.js": "^4.5.1",
+    "express": "^5.3.0",
     "hono": "^4.10.4",
+    "lucide-react": "^1.59.0",
     "otpauth": "^9.4.1",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.3.1",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4",
     "zod": "^4.1.12"
   },
   "cloudflare": {

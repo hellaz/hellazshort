@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-color: #f8fafc;
+    --text-color: #334155;
+    --card-bg: #ffffff;
+    --border-color: #e2e8f0;
+    --sidebar-bg: #0f172a;
+    --navbar-bg: #ffffff;
+    --primary-color: #6366f1;
+    --secondary-color: #64748b;
+    --hover-bg: #f1f5f9;
+    --input-bg: #f1f5f9;
+    --input-border: #cbd5e1;
+    --modal-bg: #ffffff;
+    --table-header-bg: #f8fafc;
+    --table-row-hover: #f8fafc;
+    --success-color: #10b981;
+    --error-color: #f43f5e;
+    --sidebar-text: #e2e8f0;
+    --sidebar-hover: #1e293b;
+    --sidebar-active: #6366f1;
+  }
+
+  .dark {
+    --bg-color: #0f172a;
+    --text-color: #f1f5f9;
+    --card-bg: #1e293b;
+    --border-color: #334155;
+    --sidebar-bg: #020617;
+    --navbar-bg: #1e293b;
+    --primary-color: #818cf8;
+    --secondary-color: #94a3b8;
+    --hover-bg: #334155;
+    --input-bg: #0f172a;
+    --input-border: #475569;
+    --modal-bg: #1e293b;
+    --table-header-bg: #1e293b;
+    --table-row-hover: #334155;
+    --success-color: #34d399;
+    --error-color: #fb7185;
+    --sidebar-text: #cbd5e1;
+    --sidebar-hover: #334155;
+    --sidebar-active: #818cf8;
+  }
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}

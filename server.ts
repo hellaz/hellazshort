@@ -1,15 +1,17 @@
 /**
- * Node.js Server Entry Point for OpenShort.link
- * Runs the Hono app on port 3000 (0.0.0.0) with local SQLite D1 & KV bindings.
+ * Node.js Server Entry Point for URLZ (OpenShort.link Engine)
+ * Runs Express with Vite middlewares in dev, routing APIs and Short Links to Hono & SQLite D1.
  */
 
-import { serve } from '@hono/node-server';
+import express from 'express';
+import { getRequestListener } from '@hono/node-server';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { createServer as createViteServer } from 'vite';
 import worker from './src/index';
 import type { Env } from './src/types';
-import { hashPassword } from './src/utils/crypto';
+import { hashPassword, verifyPassword } from './src/utils/crypto';
 
 // Allow running inside preview iframes
 process.env.ALLOW_IFRAME = 'true';
@@ -117,7 +119,6 @@ if (existsSync(migrationsDir)) {
       try {
         rawDb.exec(sql);
       } catch (err: any) {
-        // Some migrations may have partial table creations already, continue safely
         console.warn(`Migration ${f} notice:`, err.message);
       }
       rawDb.prepare('INSERT INTO _cf_METADATA (id, applied_at) VALUES (?, ?)').run(f, Date.now());
@@ -191,7 +192,7 @@ const env: Env = {
   CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN || '',
 };
 
-// 5. Seed default domain (urlz.eu.org as primary, localhost as fallback)
+// 5. Seed default domain (urlz.eu.org, urlz.gr, and localhost)
 async function seedInitialData() {
   const now = Date.now();
 
@@ -201,7 +202,6 @@ async function seedInitialData() {
     const oldDomain = await DB.prepare('SELECT id FROM domains WHERE normalized_domain_name = ?').bind('url.eu.org').first<{ id: string }>();
     if (oldDomain) {
       await DB.prepare("UPDATE domains SET domain_name = 'urlz.eu.org', normalized_domain_name = 'urlz.eu.org', updated_at = ? WHERE id = ?").bind(now, oldDomain.id).run();
-      console.log('Renamed default domain to urlz.eu.org');
     } else {
       await DB.prepare(
         `INSERT INTO domains (
@@ -211,6 +211,18 @@ async function seedInitialData() {
       ).bind('dom_urlzeuorg', JSON.stringify({ routes: ['/*'] }), now, now).run();
       console.log('Seeded default domain: urlz.eu.org');
     }
+  }
+
+  // Ensure urlz.gr exists
+  const existingUrlzGr = await DB.prepare('SELECT id FROM domains WHERE normalized_domain_name = ?').bind('urlz.gr').first<{ id: string }>();
+  if (!existingUrlzGr) {
+    await DB.prepare(
+      `INSERT INTO domains (
+        id, cloudflare_account_id, domain_name, normalized_domain_name, routing_path,
+        default_redirect_code, status, settings, created_at, updated_at
+      ) VALUES (?, 'local-account', 'urlz.gr', 'urlz.gr', '/*', 301, 'active', ?, ?, ?)`
+    ).bind('dom_urlzgr', JSON.stringify({ routes: ['/*'] }), now, now).run();
+    console.log('Seeded domain: urlz.gr');
   }
 
   // Ensure localhost is also present for local dev
@@ -228,7 +240,6 @@ async function seedInitialData() {
   const userCount = await DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
   if ((userCount?.count || 0) === 0 && firstUserUsername && firstUserPassword) {
     const passwordHash = await hashPassword(firstUserPassword);
-    const now = Date.now();
     await DB.prepare(
       `INSERT INTO users (
         id, email, username, password_hash, role, created_at, updated_at, global_access, must_change_password
@@ -249,34 +260,223 @@ seedInitialData().catch((err) => {
   console.error('Error during initial data seeding:', err);
 });
 
-// 6. Start Node HTTP server
-const port = parseInt(process.env.PORT || '3000', 10);
-const hostname = '0.0.0.0';
+// Helper for cookies
+function parseCookies(cookieHeader?: string): Record<string, string> {
+  const list: Record<string, string> = {};
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach((cookie) => {
+    const parts = cookie.split('=');
+    list[parts.shift()!.trim()] = decodeURI(parts.join('='));
+  });
+  return list;
+}
 
-console.log(`Starting OpenShort.link server on ${hostname}:${port}...`);
+// 6. Setup Express App
+async function startServer() {
+  const app = express();
+  const port = parseInt(process.env.PORT || '3000', 10);
+  const hostname = '0.0.0.0';
 
-serve(
-  {
-    fetch: (request: Request) => {
-      const executionCtx: any = {
-        waitUntil(promise: Promise<unknown>) {
-          promise.catch((err) => console.error('[ASYNC WORKER ERROR]', err));
-        },
-        passThroughOnException() {},
-      };
-      return worker.fetch(request, env, executionCtx);
-    },
-    port,
-    hostname,
-  },
-  (info) => {
+  // Hono Request Listener for API & Workers
+  const honoListener = getRequestListener((req: Request) => {
+    const executionCtx: any = {
+      waitUntil(promise: Promise<unknown>) {
+        promise.catch((err) => console.error('[ASYNC WORKER ERROR]', err));
+      },
+      passThroughOnException() {},
+    };
+    return worker.fetch(req, env, executionCtx);
+  });
+
+  // Password Unlock Endpoint
+  app.post('/api/v1/links/unlock/:slug', express.json(), async (req, res) => {
+    const { slug } = req.params;
+    const { password } = req.body || {};
+
+    try {
+      const link = await DB.prepare('SELECT * FROM links WHERE slug = ?').bind(slug).first<any>();
+      if (!link) {
+        return res.status(404).json({ success: false, message: 'Link not found' });
+      }
+
+      if (!link.password) {
+        return res.json({ success: true, destination_url: link.destination_url });
+      }
+
+      let matches = password === link.password;
+      if (!matches) {
+        matches = await verifyPassword(password, link.password).catch(() => false);
+      }
+
+      if (!matches) {
+        return res.status(401).json({ success: false, message: 'Incorrect password' });
+      }
+
+      // Set unlocked cookie
+      res.setHeader('Set-Cookie', `unlocked_${link.id}=1; Path=/; Max-Age=3600; SameSite=Lax`);
+      return res.json({ success: true, destination_url: link.destination_url });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // Middleware: Route API and short-link redirects
+  app.use(async (req, res, next) => {
+    const pathname = req.path;
+
+    // 1. API routes and internal endpoints go to Hono
+    if (
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/dashboard/api/') ||
+      pathname === '/dashboard/health' ||
+      pathname.endsWith('/__validate__')
+    ) {
+      return honoListener(req, res);
+    }
+
+    // 2. Filter out frontend SPA routes and asset paths
+    const isFrontendPath =
+      pathname === '/' ||
+      pathname === '/dashboard' ||
+      pathname.startsWith('/dashboard/') ||
+      pathname === '/login' ||
+      pathname === '/setup' ||
+      pathname === '/admin' ||
+      pathname.startsWith('/@') ||
+      pathname.startsWith('/src/') ||
+      pathname.startsWith('/node_modules/') ||
+      pathname.startsWith('/assets/') ||
+      pathname.endsWith('.js') ||
+      pathname.endsWith('.ts') ||
+      pathname.endsWith('.tsx') ||
+      pathname.endsWith('.css') ||
+      pathname.endsWith('.json') ||
+      pathname.endsWith('.png') ||
+      pathname.endsWith('.ico') ||
+      pathname.endsWith('.svg');
+
+    if (!isFrontendPath && req.method === 'GET') {
+      const cleanSlug = pathname.replace(/^\//, '');
+
+      try {
+        const link = await DB.prepare('SELECT * FROM links WHERE slug = ?').bind(cleanSlug).first<any>();
+        if (link) {
+          // Check if password protected
+          const cookies = parseCookies(req.headers.cookie);
+          const isUnlocked = cookies[`unlocked_${link.id}`] === '1';
+
+          if (link.password && !isUnlocked) {
+            // Render standalone password interstitial HTML
+            return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Protected Link - URLZ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 24px; padding: 2rem; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    .icon { width: 56px; height: 56px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 1.25rem; }
+    h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { font-size: 0.85rem; color: #94a3b8; line-height: 1.5; margin-bottom: 1.5rem; }
+    input { width: 100%; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid #334155; background: #020617; color: #fff; font-size: 0.9rem; margin-bottom: 1rem; outline: none; }
+    input:focus { border-color: #f59e0b; }
+    button { width: 100%; padding: 0.75rem; border-radius: 12px; border: none; background: #f59e0b; color: #000; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #d97706; }
+    .error { color: #f43f5e; font-size: 0.8rem; margin-bottom: 1rem; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔒</div>
+    <h1>Password Protected Link</h1>
+    <p>This short link requires a passcode to continue to destination.</p>
+    <div id="err" class="error"></div>
+    <form id="f">
+      <input type="password" id="p" placeholder="Enter password..." required autofocus />
+      <button type="submit">Unlock &amp; Continue &rarr;</button>
+    </form>
+  </div>
+  <script>
+    document.getElementById('f').onsubmit = async (e) => {
+      e.preventDefault();
+      const p = document.getElementById('p').value;
+      const res = await fetch('/api/v1/links/unlock/${cleanSlug}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: p })
+      });
+      const data = await res.json();
+      if (res.ok && data.destination_url) {
+        window.location.href = data.destination_url;
+      } else {
+        const err = document.getElementById('err');
+        err.textContent = data.message || 'Incorrect password';
+        err.style.display = 'block';
+      }
+    };
+  </script>
+</body>
+</html>`);
+          }
+
+          if (link.is_cloaked) {
+            // Render iframe cloaking
+            return res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${link.title || 'URLZ'}</title>
+  <style>body,html{margin:0;padding:0;height:100%;overflow:hidden;}iframe{border:none;width:100%;height:100%;}</style>
+</head>
+<body>
+  <iframe src="${link.destination_url}"></iframe>
+</body>
+</html>`);
+          }
+
+          // Let Hono redirect handler execute the redirection & click analytics
+          return honoListener(req, res);
+        }
+      } catch (e) {
+        console.error('Slug lookup error:', e);
+      }
+    }
+
+    // 3. Fall through to Vite SPA / Frontend
+    next();
+  });
+
+  // Vite Integration in Development
+  const isProd = process.env.NODE_ENV === 'production';
+  if (!isProd) {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    // Serve static files in production
+    app.use(express.static(resolve('dist')));
+    app.get('*', (_req, res) => {
+      res.sendFile(resolve('dist/index.html'));
+    });
+  }
+
+  app.listen(port, hostname, () => {
     console.log(`\n======================================================`);
-    console.log(`🔗 OpenShort.link is running!`);
-    console.log(`📍 Web URL:     http://0.0.0.0:${info.port}`);
-    console.log(`📍 Dashboard:   http://0.0.0.0:${info.port}/dashboard`);
-    console.log(`📍 Setup:       http://0.0.0.0:${info.port}/dashboard/setup`);
+    console.log(`🔗 URLZ Link Management Engine is running!`);
+    console.log(`📍 Web URL:     http://${hostname}:${port}`);
+    console.log(`📍 Dashboard:   http://${hostname}:${port}/dashboard`);
+    console.log(`📍 Setup:       http://${hostname}:${port}/dashboard/setup`);
     console.log(`🔑 SETUP_TOKEN: ${setupToken}`);
     console.log(`👤 Admin User:  ${firstUserUsername} (Password: ${firstUserPassword})`);
     console.log(`======================================================\n`);
-  }
-);
+  });
+}
+
+startServer().catch((err) => {
+  console.error('Fatal server start error:', err);
+  process.exit(1);
+});
