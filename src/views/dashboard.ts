@@ -17,7 +17,7 @@ export function dashboardHtml(csrfToken: string, nonce: string): string {
   <meta charset="UTF-8">
   <meta name="csrf-token" content="${csrfToken}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenShort.link - Dashboard</title>
+  <title>URLZ - Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -797,8 +797,8 @@ export function dashboardHtml(csrfToken: string, nonce: string): string {
                <h2>License</h2>
                <div style="padding: 1rem; background: var(--hover-bg); border-radius: 8px; border: 1px solid var(--border-color);">
                   <p style="margin-bottom: 0.5rem; font-weight: 600;">GNU Affero General Public License Version 3 (AGPL-3.0)</p>
-                  <p style="margin-bottom: 0.5rem; color: var(--secondary-color); font-size: 0.9rem;">Copyright (c) 2025 OpenShort.link Contributors.</p>
-                  <p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-color);">The source code for OpenShort.link is available under the AGPL-3.0 license. This license guarantees your freedom to share and change all versions of a program, and requires that any network-deployed modifications must also be open-source.</p>
+                  <p style="margin-bottom: 0.5rem; color: var(--secondary-color); font-size: 0.9rem;">Copyright (c) 2025 URLZ Contributors.</p>
+                  <p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-color);">The source code for URLZ is available under the AGPL-3.0 license. This license guarantees your freedom to share and change all versions of a program, and requires that any network-deployed modifications must also be open-source.</p>
                </div>
             </div>
           </div>
@@ -11504,7 +11504,7 @@ export function dashboardHtml(csrfToken: string, nonce: string): string {
     function generateLlmTxt() {
       const baseUrl = window.location.origin + API_BASE;
       
-      let doc = '# OpenShort.link API Documentation\\n\\n';
+      let doc = '# URLZ API Documentation\\n\\n';
       doc += '## Overview\\n\\n';
       doc += 'This API provides comprehensive link management functionality including link shortening, domain management, tags, categories, analytics, and API key management.\\n\\n';
       doc += '## Base Information\\n\\n';
