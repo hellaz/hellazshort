@@ -12,9 +12,10 @@ import { HTTPException } from 'hono/http-exception';
 import { ZodError } from 'zod';
 
 export function errorHandler(error: Error, c: Context) {
-  console.error('Error:', error);
-
   if (error instanceof HTTPException) {
+    if (error.status >= 500) {
+      console.error('Server Error:', error);
+    }
     return c.json(
       {
         success: false,
@@ -27,6 +28,8 @@ export function errorHandler(error: Error, c: Context) {
       error.status
     );
   }
+
+  console.error('Unhandled Error:', error);
 
   // Handle Zod validation errors
   if (error instanceof ZodError) {

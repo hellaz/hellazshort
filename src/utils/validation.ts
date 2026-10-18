@@ -19,8 +19,8 @@ export function isValidUrl(url: string): boolean {
 }
 
 export function isValidSlug(slug: string): boolean {
-  // Alphanumeric, underscore, hyphen, 2-100 characters
-  return /^[a-zA-Z0-9_-]{2,100}$/.test(slug);
+  // Alphanumeric, underscore, hyphen, and optional slash separator for multi-segment slugs (2-100 characters)
+  return /^[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*$/.test(slug) && slug.length >= 2 && slug.length <= 100;
 }
 
 // Reserved slugs that cannot be used for short links
@@ -43,14 +43,17 @@ const RESERVED_SLUGS = new Set([
 ]);
 
 export function isReservedSlug(slug: string): boolean {
-  return RESERVED_SLUGS.has(slug.toLowerCase());
+  const rootSegment = slug.split('/')[0].toLowerCase();
+  return RESERVED_SLUGS.has(rootSegment);
 }
 
 export function sanitizeSlug(slug: string): string {
-  // Remove invalid characters, convert to lowercase
+  // Remove invalid characters, normalize slashes for multi-segment slugs
   return slug
     .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/[^a-z0-9_\-\/]/g, '')
+    .replace(/\/+/g, '/')
+    .replace(/^\/+|\/+$/g, '')
     .replace(/^-+|-+$/g, '');
 }
 

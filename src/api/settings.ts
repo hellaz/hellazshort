@@ -24,6 +24,10 @@ import {
   setAnalyticsThresholds,
   getRootPageSettingsOrDefault,
   setRootPageSettings,
+  getPrivacySettingsOrDefault,
+  setPrivacySettings,
+  getBotProtectionSettingsOrDefault,
+  setBotProtectionSettings,
 } from '../db/settings';
 import { getFrequencyLabel } from '../types';
 import {
@@ -243,6 +247,42 @@ settingsRouter.put('/root-page', authMiddleware, validateJson(rootPageSchema), a
     // Keep internal error details in logs only; return a generic message to clients.
     throw new HTTPException(500, { message: 'Failed to update root page settings' });
   }
+});
+
+// Privacy & GDPR Settings
+settingsRouter.get('/privacy', authMiddleware, async (c) => {
+  const setting = await getPrivacySettingsOrDefault(c.env);
+  return c.json({ success: true, data: setting });
+});
+
+settingsRouter.put('/privacy', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
+    throw new HTTPException(403, { message: 'Insufficient permissions' });
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  await setPrivacySettings(c.env, body, user.id);
+  const updated = await getPrivacySettingsOrDefault(c.env);
+  return c.json({ success: true, data: updated, message: 'Privacy & GDPR settings updated successfully' });
+});
+
+// Bot Protection & Safety Settings
+settingsRouter.get('/bot-protection', authMiddleware, async (c) => {
+  const setting = await getBotProtectionSettingsOrDefault(c.env);
+  return c.json({ success: true, data: setting });
+});
+
+settingsRouter.put('/bot-protection', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
+    throw new HTTPException(403, { message: 'Insufficient permissions' });
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  await setBotProtectionSettings(c.env, body, user.id);
+  const updated = await getBotProtectionSettingsOrDefault(c.env);
+  return c.json({ success: true, data: updated, message: 'Bot protection settings updated successfully' });
 });
 
 export { settingsRouter };

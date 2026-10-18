@@ -82,6 +82,7 @@ const baseLinkSchema = z.object({
   tags: z.array(z.string()).max(10).optional(),
   category_id: z.string().optional(),
   expires_at: z.number().optional(),
+  password: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   geo_redirects: z.array(geoRedirectSchema).max(10).optional(),
   device_redirects: z.array(deviceRedirectSchema).optional(),

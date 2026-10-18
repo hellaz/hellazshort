@@ -33,7 +33,7 @@ export function dashboardHtml(csrfToken: string, nonce: string): string {
 <body>
   <div id="app">
     <nav class="navbar">
-      <div class="nav-brand"><a href="https://openshort.link/" target="_blank" rel="noopener" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0; line-height: 0;"><img src="${LOGO_DATA_URI}" alt="OpenShort.link" style="height: 120px; width: auto; display: block; margin: 0; padding: 0; vertical-align: top;" /></a></div>
+      <div class="nav-brand"><a href="#dashboard" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0; line-height: 0;"><img src="${LOGO_DATA_URI}" alt="URLZ" style="height: 120px; width: auto; display: block; margin: 0; padding: 0; vertical-align: top;" /></a></div>
       <div class="nav-items">
         <select id="domain-selector" class="domain-selector">
           <option value="">Select Domain</option>
@@ -67,7 +67,6 @@ export function dashboardHtml(csrfToken: string, nonce: string): string {
             <span class="nav-link-toggle">▶</span>
           </div>
           <div class="nav-submenu" id="integrations-submenu">
-            <a href="https://openshort.link/integration" class="external-nav-link" target="_blank" rel="noopener" style="padding: 0.5rem 1rem; text-decoration: none; color: var(--sidebar-text); opacity: 0.8; border-radius: 6px; transition: all 0.2s; font-size: 0.9rem; display: block;">App Integration <span style="font-size: 0.7em; opacity: 0.7;">↗</span></a>
             <a href="#integrations" class="nav-submenu-link" data-page="integrations">API Keys</a>
             <a href="#manual-integration" class="nav-submenu-link" data-page="manual-integration">Manual Integration</a>
           </div>
@@ -781,37 +780,17 @@ export function dashboardHtml(csrfToken: string, nonce: string): string {
           </div>
           <div class="settings-content" style="max-width: 800px;">
             <div style="margin-bottom: 2rem;">
-               <h2>About <a href="https://openshort.link" target="_blank" style="text-decoration: none; color: inherit;">OpenShort.link</a></h2>
-               <p style="margin-top: 0.5rem; line-height: 1.6;"><a href="https://openshort.link" target="_blank" style="text-decoration: none; color: var(--primary-color); font-weight: 500;">OpenShort.link</a> is an all-in-one, open-source link management platform built on Cloudflare Workers, offering high-performance redirects, comprehensive analytics, and multi domain.</p>
-
+               <h2>About URLZ</h2>
+               <p style="margin-top: 0.5rem; line-height: 1.6;"><strong style="color: var(--primary-color); font-weight: 600;">URLZ</strong> is a high-performance, open-source link management platform built on Cloudflare Workers, offering lightning-fast redirects, advanced privacy compliance, multi-domain routing, and real-time analytics.</p>
             </div>
             <div style="margin-bottom: 2rem;">
-               <h2>Resources</h2>
+               <h2>Platform Highlights</h2>
                <ul style="list-style-type: none; padding: 0; margin-top: 0.5rem;">
-                 <li style="margin-bottom: 0.75rem;"><a href="https://openshort.link/docs" target="_blank" style="text-decoration: none; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">📚 Documentation</a></li>
-                 <li style="margin-bottom: 0.75rem;"><a href="https://openshort.link/roadmap" target="_blank" style="text-decoration: none; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">🗺️ Roadmap</a></li>
-                 <li style="margin-bottom: 0.75rem;"><a href="https://github.com/idhamsy/openshortlink/issues" target="_blank" style="text-decoration: none; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">🐛 Report a bug</a></li>
-                  <li style="margin-bottom: 0.75rem;"><a href="https://openshort.link/updates" target="_blank" style="text-decoration: none; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">🆕 Update to latest version</a></li>
-                </ul>
-            </div>
-
-            <div style="margin-bottom: 2rem; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-               <div style="display: flex; align-items: center; gap: 0.75rem;">
-                 <span style="font-size: 1.5rem;">🚀</span>
-                 <h3 style="margin: 0; font-size: 1.25rem;">Support OpenShort.link</h3>
-               </div>
-               <p style="margin: 0; line-height: 1.6; color: var(--text-color); font-size: 1rem;">
-                 Your support keeps OpenShort.link alive! This project is open-source and free to use. If you find it valuable, please consider giving us a star on GitHub or making a small donation. Your support directly helps us maintain infrastructure and develop new features for the community.
-               </p>
-               <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
-                 <a href="https://github.com/idhamsy/openshortlink" target="_blank" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--border-color);">
-                    <svg height="20" width="20" viewBox="0 0 16 16" fill="#e3b341"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.719-4.192-3.046-2.97a.75.75 0 01.416-1.28l4.21-.612L7.327.668A.75.75 0 018 .25z"></path></svg>
-                    Star on GitHub
-                 </a>
-                 <a href="https://openshort.link/support-us" target="_blank" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; background-color: #e91e63; border-color: #e91e63; color: white;">
-                    💝 Donate
-                 </a>
-               </div>
+                 <li style="margin-bottom: 0.75rem;"><span style="color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">⚡ Edge Redirects on Cloudflare Workers &amp; D1</span></li>
+                 <li style="margin-bottom: 0.75rem;"><span style="color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">🔒 Password Protected Links &amp; Interstitials</span></li>
+                 <li style="margin-bottom: 0.75rem;"><span style="color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">🛡️ GDPR Compliance &amp; IP Anonymization</span></li>
+                 <li style="margin-bottom: 0.75rem;"><span style="color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem;">🌐 Multi-Domain Management (urlz.eu.org &amp; urlz.gr)</span></li>
+               </ul>
             </div>
 
             <div style="margin-bottom: 2rem;">

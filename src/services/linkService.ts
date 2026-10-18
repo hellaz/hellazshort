@@ -18,6 +18,15 @@ export interface CachedLinkParts {
  * Single source of truth for the cache shape (shared by buildCachedLink and CSV import).
  */
 export function composeCachedLink(link: Link, domain: Domain, parts: CachedLinkParts): CachedLink {
+  let meta: any = {};
+  if (link.metadata) {
+    try {
+      meta = typeof link.metadata === 'string' ? JSON.parse(link.metadata) : link.metadata;
+    } catch {
+      meta = {};
+    }
+  }
+
   return {
     destination_url: link.destination_url,
     redirect_code: link.redirect_code,
@@ -25,15 +34,17 @@ export function composeCachedLink(link: Link, domain: Domain, parts: CachedLinkP
     expires_at: link.expires_at,
     password_hash: link.password_hash,
     link_id: link.id,
+    click_count: link.click_count,
+    max_clicks: typeof meta?.max_clicks === 'number' ? meta.max_clicks : undefined,
+    splash: meta?.splash?.enabled ? meta.splash : undefined,
+    is_cloaked: Boolean(meta?.is_cloaked),
     geo_redirects: parts.geo,
     device_redirects: parts.device,
     city_redirects: parts.city,
     os_redirects: parts.os,
     og_meta: parts.og_meta,
     pixels: parts.pixels,
-    route: link.metadata ? (() => {
-      try { return JSON.parse(link.metadata).route; } catch { return undefined; }
-    })() : undefined,
+    route: meta?.route,
     domain_routing_path: domain.routing_path,
   };
 }

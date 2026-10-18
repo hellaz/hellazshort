@@ -97,7 +97,9 @@ export const DomainsView: React.FC<DomainsViewProps> = ({ domains, onRefresh }) 
 
       {/* Domain Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {domains.map((domain) => (
+        {domains
+          .filter((d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost')
+          .map((domain) => (
           <div
             key={domain.id}
             className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4"

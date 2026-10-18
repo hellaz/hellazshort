@@ -53,6 +53,7 @@ import { resolveLinkPixelIds, PixelError } from '../services/pixelLibrary';
 import { parseBulkRequest, runBulk } from '../services/bulkLinks';
 import { generateId, generateSlug } from '../utils/id';
 import { isValidUrl, isValidSlug, normalizeUrl, sanitizeHtml, sanitizeSearchInput, validateNumericBoundary, isReservedSlug } from '../utils/validation';
+import { hashPassword, verifyPassword } from '../utils/crypto';
 import { detectCountryCode, getCountryName } from '../utils/countryMappings';
 import { authMiddleware, authOrApiKeyMiddleware } from '../middleware/auth';
 import { validateJson } from '../middleware/validate';
@@ -110,6 +111,39 @@ async function resolveAccessibleDomainConstraint(
 
   return ((user as any).accessible_domain_ids as string[] | undefined) ?? [];
 }
+
+// Public: Unlock a password-protected link
+linksRouter.post('/unlock/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  const body = await c.req.json().catch(() => ({}));
+  const { password } = body as { password?: string };
+
+  try {
+    const link = await c.env.DB.prepare('SELECT * FROM links WHERE slug = ?').bind(slug).first<any>();
+    if (!link) {
+      return c.json({ success: false, message: 'Link not found' }, 404);
+    }
+
+    const linkPass = link.password_hash || link.password;
+    if (!linkPass) {
+      return c.json({ success: true, destination_url: link.destination_url });
+    }
+
+    let matches = password === linkPass;
+    if (!matches) {
+      matches = await verifyPassword(password || '', linkPass).catch(() => false);
+    }
+
+    if (!matches) {
+      return c.json({ success: false, message: 'Incorrect password' }, 401);
+    }
+
+    c.header('Set-Cookie', `unlocked_${link.id}=1; Path=/; Max-Age=3600; SameSite=Lax`);
+    return c.json({ success: true, destination_url: link.destination_url });
+  } catch (err: any) {
+    return c.json({ success: false, message: err.message }, 500);
+  }
+});
 
 // List links
 linksRouter.get('/', authOrApiKeyMiddleware, async (c) => {
@@ -642,6 +676,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
   // into a clean 409 Conflict instead of a raw 500.
   let link: Link;
   try {
+    const passwordHash = validated.password ? await hashPassword(validated.password) : null;
     link = await createLink(c.env, {
       domain_id: validated.domain_id,
       slug,
@@ -651,6 +686,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
       redirect_code: validated.redirect_code,
       status: 'active',
       expires_at: validated.expires_at,
+      password_hash: passwordHash,
       metadata,
       category_id: validated.category_id, // Use dedicated column
       click_count: 0,
@@ -804,8 +840,12 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
     }
   }
 
-  if (validated.metadata !== undefined && validated.category_id === undefined && validated.route === undefined) {
-    const currentMetadata = existingLink.metadata ? JSON.parse(existingLink.metadata) : {};
+  if (validated.password !== undefined) {
+    updates.password_hash = validated.password ? await hashPassword(validated.password) : null;
+  }
+
+  if (validated.metadata !== undefined) {
+    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
     updates.metadata = JSON.stringify({ ...currentMetadata, ...validated.metadata });
   }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiRequest, setAuthToken } from '../api';
 import { useToast } from '../components/Toast';
 import {
@@ -34,6 +34,22 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    apiRequest('auth/setup-status')
+      .then((res) => {
+        if (res.success && res.data) {
+          setIsSetupCompleted(res.data.is_setup_completed);
+          if (res.data.is_setup_completed && mode === 'setup') {
+            setMode('login');
+          }
+        }
+      })
+      .catch(() => {
+        setIsSetupCompleted(true);
+      });
+  }, [mode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,15 +226,17 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </button>
             </form>
 
-            <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-              <button
-                type="button"
-                onClick={() => setMode('setup')}
-                className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
-              >
-                First time? Initial Setup
-              </button>
-            </div>
+            {isSetupCompleted === false && (
+              <div className="mt-6 pt-5 border-t border-slate-800 text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode('setup')}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  First time? Initial Setup
+                </button>
+              </div>
+            )}
           </div>
         )}
 

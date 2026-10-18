@@ -283,11 +283,11 @@ export async function updateDomain(
 }
 
 export async function listDomains(env: Env, accountId?: string): Promise<Domain[]> {
-  let query = 'SELECT * FROM domains';
+  let query = "SELECT * FROM domains WHERE domain_name != 'localhost' AND (normalized_domain_name IS NULL OR normalized_domain_name != 'localhost')";
   const params: unknown[] = [];
 
   if (accountId) {
-    query += ' WHERE cloudflare_account_id = ?';
+    query += ' AND cloudflare_account_id = ?';
     params.push(accountId);
   }
 

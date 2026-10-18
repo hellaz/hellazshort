@@ -66,9 +66,17 @@ export const AppContent: React.FC = () => {
   const fetchDomains = async () => {
     const res = await apiRequest('domains');
     if (res.success && Array.isArray(res.data)) {
-      setDomains(res.data);
-      if (res.data.length > 0 && !currentDomainId) {
-        setCurrentDomainId(res.data[0].id);
+      // localhost is never a domain option
+      const filtered = res.data.filter(
+        (d: Domain) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost'
+      );
+      setDomains(filtered);
+      if (filtered.length > 0 && !currentDomainId) {
+        const preferred =
+          filtered.find((d: Domain) => d.domain_name === 'urlz.eu.org') ||
+          filtered.find((d: Domain) => d.domain_name === 'urlz.gr') ||
+          filtered[0];
+        setCurrentDomainId(preferred.id);
       }
     }
   };
@@ -130,7 +138,10 @@ export const AppContent: React.FC = () => {
   };
 
   const activeDomain = domains.find((d) => d.id === currentDomainId);
-  const activeDomainName = activeDomain?.domain_name || window.location.host;
+  const activeDomainName =
+    activeDomain?.domain_name && activeDomain.domain_name !== 'localhost'
+      ? activeDomain.domain_name
+      : 'urlz.eu.org';
 
   if (!authChecked) {
     return (

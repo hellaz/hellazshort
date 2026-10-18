@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, X, ShieldAlert, Check } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import { apiRequest } from '../api';
 
 interface ReportAbuseModalProps {
   isOpen: boolean;
@@ -23,18 +24,35 @@ export const ReportAbuseModal: React.FC<ReportAbuseModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      const res = await apiRequest('abuse-reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          url: url.trim(),
+          reason,
+          email: email.trim(),
+          details: details.trim(),
+        }),
+      });
+
+      if (res.success) {
+        setSubmitted(true);
+        showToast('Report submitted for security team review', 'success');
+        setTimeout(() => {
+          setSubmitted(false);
+          onClose();
+        }, 2500);
+      } else {
+        showToast(res.error || res.message || 'Failed to submit report', 'error');
+      }
+    } catch {
+      showToast('Network error submitting report', 'error');
+    } finally {
       setSubmitting(false);
-      setSubmitted(true);
-      showToast('Report submitted for security team review', 'success');
-      setTimeout(() => {
-        setSubmitted(false);
-        onClose();
-      }, 2500);
-    }, 800);
+    }
   };
 
   return (

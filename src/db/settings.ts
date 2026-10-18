@@ -327,3 +327,123 @@ export async function setRootPageSettings(
     .run();
 }
 
+export interface PrivacySettings {
+  anonymize_ip: boolean;
+  cookie_consent: boolean;
+  data_retention_days: number;
+}
+
+export async function getPrivacySettingsOrDefault(env: Env): Promise<PrivacySettings> {
+  const result = await env.DB.prepare(
+    `SELECT value FROM settings WHERE key = 'privacy_gdpr' AND domain_id IS NULL`
+  ).first<{ value: string }>();
+
+  if (!result) {
+    return {
+      anonymize_ip: true,
+      cookie_consent: true,
+      data_retention_days: 90,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(result.value);
+    return {
+      anonymize_ip: parsed.anonymize_ip ?? true,
+      cookie_consent: parsed.cookie_consent ?? true,
+      data_retention_days: Number(parsed.data_retention_days) || 90,
+    };
+  } catch {
+    return {
+      anonymize_ip: true,
+      cookie_consent: true,
+      data_retention_days: 90,
+    };
+  }
+}
+
+export async function setPrivacySettings(
+  env: Env,
+  settings: Partial<PrivacySettings>,
+  userId: string
+): Promise<void> {
+  const now = Date.now();
+  const current = await getPrivacySettingsOrDefault(env);
+  const updated = { ...current, ...settings };
+  const value = JSON.stringify(updated);
+
+  await env.DB.prepare(
+    `INSERT INTO settings (key, value, domain_id, updated_at, updated_by)
+     VALUES ('privacy_gdpr', ?, NULL, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       value = excluded.value,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by
+     WHERE domain_id IS NULL`
+  ).bind(value, now, userId).run();
+}
+
+export interface BotProtectionSettings {
+  exclude_bots_from_stats: boolean;
+  detection_sensitivity: 'permissive' | 'standard' | 'aggressive';
+  enable_recaptcha: boolean;
+  check_phishing_reputation: boolean;
+  turnstile_site_key?: string;
+}
+
+export async function getBotProtectionSettingsOrDefault(env: Env): Promise<BotProtectionSettings> {
+  const result = await env.DB.prepare(
+    `SELECT value FROM settings WHERE key = 'bot_protection' AND domain_id IS NULL`
+  ).first<{ value: string }>();
+
+  if (!result) {
+    return {
+      exclude_bots_from_stats: true,
+      detection_sensitivity: 'standard',
+      enable_recaptcha: false,
+      check_phishing_reputation: true,
+      turnstile_site_key: '',
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(result.value);
+    return {
+      exclude_bots_from_stats: parsed.exclude_bots_from_stats ?? true,
+      detection_sensitivity: parsed.detection_sensitivity || 'standard',
+      enable_recaptcha: parsed.enable_recaptcha ?? false,
+      check_phishing_reputation: parsed.check_phishing_reputation ?? true,
+      turnstile_site_key: parsed.turnstile_site_key || '',
+    };
+  } catch {
+    return {
+      exclude_bots_from_stats: true,
+      detection_sensitivity: 'standard',
+      enable_recaptcha: false,
+      check_phishing_reputation: true,
+      turnstile_site_key: '',
+    };
+  }
+}
+
+export async function setBotProtectionSettings(
+  env: Env,
+  settings: Partial<BotProtectionSettings>,
+  userId: string
+): Promise<void> {
+  const now = Date.now();
+  const current = await getBotProtectionSettingsOrDefault(env);
+  const updated = { ...current, ...settings };
+  const value = JSON.stringify(updated);
+
+  await env.DB.prepare(
+    `INSERT INTO settings (key, value, domain_id, updated_at, updated_by)
+     VALUES ('bot_protection', ?, NULL, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       value = excluded.value,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by
+     WHERE domain_id IS NULL`
+  ).bind(value, now, userId).run();
+}
+

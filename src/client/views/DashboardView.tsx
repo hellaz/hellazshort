@@ -94,7 +94,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [formPassword, setFormPassword] = useState('');
   const [formIsCloaked, setFormIsCloaked] = useState(false);
   const [formExpiresAt, setFormExpiresAt] = useState('');
-  
+  const [formMaxClicks, setFormMaxClicks] = useState('');
+
   // Advanced Accordions in Create/Edit
   const [showUtmBuilder, setShowUtmBuilder] = useState(false);
   const [utmSource, setUtmSource] = useState('');
@@ -106,8 +107,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [showTargeting, setShowTargeting] = useState(false);
   const [targetIos, setTargetIos] = useState('');
   const [targetAndroid, setTargetAndroid] = useState('');
+  const [targetDesktop, setTargetDesktop] = useState('');
+  const [targetMobile, setTargetMobile] = useState('');
   const [targetCountry, setTargetCountry] = useState('');
   const [targetCountryUrl, setTargetCountryUrl] = useState('');
+  const [targetCity, setTargetCity] = useState('');
+  const [targetCityUrl, setTargetCityUrl] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState('');
+  const [targetLanguageUrl, setTargetLanguageUrl] = useState('');
+
+  // Splash Interstitial Configuration
+  const [showSplashConfig, setShowSplashConfig] = useState(false);
+  const [splashEnabled, setSplashEnabled] = useState(false);
+  const [splashCountdown, setSplashCountdown] = useState(5);
+  const [splashTitle, setSplashTitle] = useState('Sponsored Destination');
+  const [splashMessage, setSplashMessage] = useState('You will be redirected to your destination shortly.');
+  const [splashBannerUrl, setSplashBannerUrl] = useState('');
+  const [splashButtonText, setSplashButtonText] = useState('Proceed to Destination');
 
   const [selectedPixelIds, setSelectedPixelIds] = useState<string[]>([]);
 
@@ -121,7 +137,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const fetchData = async () => {
     setLoading(true);
     try {
-      const linkQuery = currentDomainId ? `domain_id=${currentDomainId}&limit=500` : 'limit=500';
+      const linkQuery = currentDomainId ? `domain_id=${currentDomainId}&limit=500&include_redirects=true` : 'limit=500&include_redirects=true';
       const [linksRes, tagsRes, catsRes, pixelsRes] = await Promise.all([
         apiRequest(`links?${linkQuery}`),
         apiRequest('tags'),
@@ -161,7 +177,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const handleOpenCreate = () => {
     setEditingLink(null);
-    setFormDomainId(currentDomainId || (domains[0]?.id || ''));
+    const availableDomains = domains.filter(
+      (d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost'
+    );
+    setFormDomainId(currentDomainId || (availableDomains[0]?.id || ''));
     setFormDestination('');
     setFormSlug('');
     setFormTitle('');
@@ -172,6 +191,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setFormPassword('');
     setFormIsCloaked(false);
     setFormExpiresAt('');
+    setFormMaxClicks('');
     setUtmSource('');
     setUtmMedium('');
     setUtmCampaign('');
@@ -179,8 +199,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setUtmContent('');
     setTargetIos('');
     setTargetAndroid('');
+    setTargetDesktop('');
+    setTargetMobile('');
     setTargetCountry('');
     setTargetCountryUrl('');
+    setTargetCity('');
+    setTargetCityUrl('');
+    setTargetLanguage('');
+    setTargetLanguageUrl('');
+    setSplashEnabled(false);
+    setSplashCountdown(5);
+    setSplashTitle('Sponsored Destination');
+    setSplashMessage('You will be redirected to your destination shortly.');
+    setSplashBannerUrl('');
+    setSplashButtonText('Proceed to Destination');
     setSelectedPixelIds([]);
     setOgTitle('');
     setOgDescription('');
@@ -188,7 +220,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setIsEditModalOpen(true);
   };
 
-  const handleOpenEdit = (link: LinkType) => {
+  const handleOpenEdit = (link: any) => {
     setEditingLink(link);
     setFormDomainId(link.domain_id);
     setFormDestination(link.destination_url);
@@ -201,8 +233,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setFormPassword(link.password || '');
     setFormIsCloaked(Boolean(link.is_cloaked));
     setFormExpiresAt(link.expires_at ? new Date(link.expires_at).toISOString().slice(0, 16) : '');
-    
-    // UTM (extract if present)
+
+    // Parse metadata
+    let meta: any = {};
+    try {
+      meta = typeof link.metadata === 'string' ? JSON.parse(link.metadata) : (link.metadata || {});
+    } catch {
+      meta = {};
+    }
+
+    setFormMaxClicks(meta.max_clicks ? String(meta.max_clicks) : '');
+    setSplashEnabled(Boolean(meta.splash?.enabled));
+    setSplashCountdown(meta.splash?.countdown || 5);
+    setSplashTitle(meta.splash?.title || 'Sponsored Destination');
+    setSplashMessage(meta.splash?.message || '');
+    setSplashBannerUrl(meta.splash?.banner_url || '');
+    setSplashButtonText(meta.splash?.button_text || 'Proceed to Destination');
+
+    // UTM (extract if present in destination)
     try {
       const u = new URL(link.destination_url);
       setUtmSource(u.searchParams.get('utm_source') || '');
@@ -214,12 +262,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       // ignore
     }
 
-    setTargetIos(link.redirect_rules?.device?.['ios'] || '');
-    setTargetAndroid(link.redirect_rules?.device?.['android'] || '');
+    // OS redirects
+    const iosRedirect = link.os_redirects?.find((r: any) => r.os === 'ios')?.destination_url || link.redirect_rules?.device?.['ios'] || '';
+    const androidRedirect = link.os_redirects?.find((r: any) => r.os === 'android')?.destination_url || link.redirect_rules?.device?.['android'] || '';
+    setTargetIos(iosRedirect);
+    setTargetAndroid(androidRedirect);
+
+    // Device redirects
+    const desktopRedirect = link.device_redirects?.find((r: any) => r.device_type === 'desktop')?.destination_url || '';
+    const mobileRedirect = link.device_redirects?.find((r: any) => r.device_type === 'mobile')?.destination_url || '';
+    setTargetDesktop(desktopRedirect);
+    setTargetMobile(mobileRedirect);
+
+    // Geo redirects
+    if (link.geo_redirects && link.geo_redirects.length > 0) {
+      setTargetCountry(link.geo_redirects[0].country_code);
+      setTargetCountryUrl(link.geo_redirects[0].destination_url);
+    } else if (link.redirect_rules?.geo) {
+      const firstCountry = Object.keys(link.redirect_rules.geo)[0];
+      setTargetCountry(firstCountry || '');
+      setTargetCountryUrl(firstCountry ? link.redirect_rules.geo[firstCountry] : '');
+    } else {
+      setTargetCountry('');
+      setTargetCountryUrl('');
+    }
+
+    // City redirects
+    if (link.city_redirects && link.city_redirects.length > 0) {
+      setTargetCity(link.city_redirects[0].city_name);
+      setTargetCityUrl(link.city_redirects[0].destination_url);
+    } else {
+      setTargetCity('');
+      setTargetCityUrl('');
+    }
+
+    // Language redirects
+    if (meta.language_redirects) {
+      const firstLang = Object.keys(meta.language_redirects)[0];
+      setTargetLanguage(firstLang || '');
+      setTargetLanguageUrl(firstLang ? meta.language_redirects[firstLang] : '');
+    } else {
+      setTargetLanguage('');
+      setTargetLanguageUrl('');
+    }
+
     setSelectedPixelIds(link.pixel_ids || []);
-    setOgTitle(link.og_meta?.title || '');
-    setOgDescription(link.og_meta?.description || '');
-    setOgImage(link.og_meta?.image || '');
+    setOgTitle(link.og_meta?.og_title || link.og_meta?.title || '');
+    setOgDescription(link.og_meta?.og_description || link.og_meta?.description || '');
+    setOgImage(link.og_meta?.og_image || link.og_meta?.image || '');
 
     setIsEditModalOpen(true);
   };
@@ -278,43 +368,80 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       }
     }
 
+    const cleanSlug = formSlug ? formSlug.trim().replace(/^\/+|\/+$/g, '') : undefined;
+
+    // Metadata composition
+    const metadataObj: any = {
+      ...(editingLink?.metadata ? (typeof editingLink.metadata === 'string' ? JSON.parse(editingLink.metadata) : editingLink.metadata) : {}),
+    };
+
+    if (splashEnabled) {
+      metadataObj.splash = {
+        enabled: true,
+        countdown: Number(splashCountdown) || 5,
+        title: splashTitle.trim() || 'Sponsored Destination',
+        message: splashMessage.trim() || '',
+        banner_url: splashBannerUrl.trim() || undefined,
+        button_text: splashButtonText.trim() || 'Proceed to Destination',
+      };
+    } else {
+      delete metadataObj.splash;
+    }
+
+    if (formMaxClicks) {
+      metadataObj.max_clicks = Number(formMaxClicks);
+    } else {
+      delete metadataObj.max_clicks;
+    }
+
+    if (targetLanguage && targetLanguageUrl) {
+      metadataObj.language_redirects = {
+        [targetLanguage.trim().toLowerCase()]: targetLanguageUrl.trim(),
+      };
+    } else {
+      delete metadataObj.language_redirects;
+    }
+
+    // Dynamic redirects
+    const geo_redirects = targetCountry && targetCountryUrl
+      ? [{ country_code: targetCountry.trim().toUpperCase(), destination_url: targetCountryUrl.trim() }]
+      : [];
+    const city_redirects = targetCity && targetCityUrl
+      ? [{ city_name: targetCity.trim().toLowerCase(), destination_url: targetCityUrl.trim() }]
+      : [];
+    const os_redirects = [];
+    if (targetIos) os_redirects.push({ os: 'ios' as const, destination_url: targetIos.trim() });
+    if (targetAndroid) os_redirects.push({ os: 'android' as const, destination_url: targetAndroid.trim() });
+    const device_redirects = [];
+    if (targetDesktop) device_redirects.push({ device_type: 'desktop' as const, destination_url: targetDesktop.trim() });
+    if (targetMobile) device_redirects.push({ device_type: 'mobile' as const, destination_url: targetMobile.trim() });
+
     const payload: any = {
       domain_id: formDomainId,
       destination_url: finalDest,
-      slug: formSlug ? formSlug.trim() : undefined,
+      slug: cleanSlug,
       title: formTitle.trim() || undefined,
       description: formDescription.trim() || undefined,
-      category: formCategory.trim() || null,
+      category_id: formCategory.trim() || undefined,
       tags: formTags.length > 0 ? formTags : [],
       redirect_code: Number(formRedirectCode) || 301,
-      password: formPassword.trim() || null,
+      password: formPassword.trim() || undefined,
       is_cloaked: formIsCloaked,
-      expires_at: formExpiresAt ? new Date(formExpiresAt).getTime() : null,
+      expires_at: formExpiresAt ? new Date(formExpiresAt).getTime() : undefined,
+      metadata: metadataObj,
       pixel_ids: selectedPixelIds,
+      geo_redirects,
+      city_redirects,
+      os_redirects,
+      device_redirects,
     };
-
-    // Targeting rules
-    const redirectRules: any = {};
-    if (targetIos || targetAndroid) {
-      redirectRules.device = {};
-      if (targetIos) redirectRules.device['ios'] = targetIos.trim();
-      if (targetAndroid) redirectRules.device['android'] = targetAndroid.trim();
-    }
-    if (targetCountry && targetCountryUrl) {
-      redirectRules.geo = {
-        [targetCountry.trim().toUpperCase()]: targetCountryUrl.trim(),
-      };
-    }
-    if (Object.keys(redirectRules).length > 0) {
-      payload.redirect_rules = redirectRules;
-    }
 
     // OpenGraph meta
     if (ogTitle || ogDescription || ogImage) {
       payload.og_meta = {
-        title: ogTitle.trim() || undefined,
-        description: ogDescription.trim() || undefined,
-        image: ogImage.trim() || undefined,
+        og_title: ogTitle.trim() || undefined,
+        og_description: ogDescription.trim() || undefined,
+        og_image: ogImage.trim() || undefined,
       };
     }
 
@@ -875,18 +1002,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onChange={(e) => setFormDomainId(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
                   >
-                    {domains.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.domain_name}
-                      </option>
-                    ))}
+                    {domains
+                      .filter((d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost')
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.domain_name}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Custom Slug (optional)
+                      Custom or Multi-segment Slug (optional)
                     </label>
                     <button
                       type="button"
@@ -902,13 +1031,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </span>
                     <input
                       type="text"
-                      placeholder="promo2025"
+                      placeholder="promo2025 or campaign/summer"
                       value={formSlug}
-                      onChange={(e) => setFormSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                      onChange={(e) => setFormSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_\-\/]/g, ''))}
                       className="w-full px-3 py-2 text-sm font-mono rounded-r-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Multi-segment custom slugs supported (e.g. promo/summer or shop/2026)</p>
                 </div>
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="p-2.5 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-900/40 text-xs font-mono text-indigo-700 dark:text-indigo-300 flex items-center justify-between">
+                <span className="truncate">
+                  Target Short URL: https://{domains.find((d) => d.id === formDomainId)?.domain_name || 'urlz.eu.org'}/{formSlug || 'auto-generated'}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-indigo-500 font-sans ml-2 shrink-0">Live Preview</span>
               </div>
 
               {/* Title & Description */}
@@ -1030,6 +1168,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
 
+              {/* Limited Access: Maximum Visits */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Maximum Visits Limit (optional)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 500 visits"
+                    value={formMaxClicks}
+                    onChange={(e) => setFormMaxClicks(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Automatically disables link after reaching visit threshold</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Security &amp; Privacy Verification
+                  </label>
+                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>GDPR Compliant &bull; Bot Filtered &bull; Phishing Scanned</span>
+                  </div>
+                </div>
+              </div>
+
               {/* UTM Builder Accordion */}
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                 <button
@@ -1084,20 +1249,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 )}
               </div>
 
-              {/* Targeting Rules (Device & Geo) */}
+              {/* Targeting Rules (Device, Geo & Language) */}
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setShowTargeting(!showTargeting)}
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
-                  <span>Geo & Device Targeting Rules</span>
+                  <span>Dynamic Redirects: Geo, Device &amp; Language</span>
                   {showTargeting ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {showTargeting && (
                   <div className="p-4 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
                     <p className="text-[11px] text-slate-500">
-                      Redirect users to alternative destinations based on their operating system or country.
+                      Dynamically redirect visitors to different places based on device, country, or language.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -1125,6 +1290,226 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         />
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Country Code (e.g. GR, US, DE)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          placeholder="GR"
+                          value={targetCountry}
+                          onChange={(e) => setTargetCountry(e.target.value.toUpperCase())}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Country Destination URL
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://mysite.gr/product"
+                          value={targetCountryUrl}
+                          onChange={(e) => setTargetCountryUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                    </div>
+                    {/* City Override */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          City Name (e.g. Athens, London, New York)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Athens"
+                          value={targetCity}
+                          onChange={(e) => setTargetCity(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          City Destination URL
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://mysite.gr/athens-special"
+                          value={targetCityUrl}
+                          onChange={(e) => setTargetCityUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Desktop & Mobile Overrides */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Desktop Device Override
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://mysite.com/desktop-version"
+                          value={targetDesktop}
+                          onChange={(e) => setTargetDesktop(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Mobile Device Override
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://m.mysite.com"
+                          value={targetMobile}
+                          onChange={(e) => setTargetMobile(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Language Code (e.g. el, en, fr)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={5}
+                          placeholder="el"
+                          value={targetLanguage}
+                          onChange={(e) => setTargetLanguage(e.target.value.toLowerCase())}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 lowercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Language Destination URL
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://mysite.com/el/welcome"
+                          value={targetLanguageUrl}
+                          onChange={(e) => setTargetLanguageUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Splash Page Interstitial (Monetization & Announcements) */}
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowSplashConfig(!showSplashConfig)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-4 h-4 text-amber-500" />
+                    <span>Splash Page Interstitial (Monetization &amp; Ads)</span>
+                    {splashEnabled && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-bold">
+                        Active ({splashCountdown}s)
+                      </span>
+                    )}
+                  </div>
+                  {showSplashConfig ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {showSplashConfig && (
+                  <div className="p-4 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={splashEnabled}
+                        onChange={(e) => setSplashEnabled(e.target.checked)}
+                        className="rounded text-indigo-600 w-4 h-4"
+                      />
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        Enable Interstitial Splash Page Before Redirecting
+                      </span>
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      Displays a timed interstitial screen with countdown, promotional message or ad banner, and a skip button.
+                    </p>
+
+                    {splashEnabled && (
+                      <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                              Countdown Delay (seconds)
+                            </label>
+                            <input
+                              type="number"
+                              min="2"
+                              max="30"
+                              value={splashCountdown}
+                              onChange={(e) => setSplashCountdown(Math.max(2, parseInt(e.target.value) || 5))}
+                              className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                              Sponsor / Heading Title
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Sponsored Destination"
+                              value={splashTitle}
+                              onChange={(e) => setSplashTitle(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            Custom Message / Ad Copy
+                          </label>
+                          <textarea
+                            rows={2}
+                            placeholder="Check out our exclusive deals before proceeding..."
+                            value={splashMessage}
+                            onChange={(e) => setSplashMessage(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                              Banner Image URL (optional)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="https://example.com/ad-banner.png"
+                              value={splashBannerUrl}
+                              onChange={(e) => setSplashBannerUrl(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                              Continue Button Text
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Proceed to Destination"
+                              value={splashButtonText}
+                              onChange={(e) => setSplashButtonText(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

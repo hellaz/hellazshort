@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono leading-none">
-                OpenShort.link Engine
+                Link Management Platform
               </p>
             </div>
           </button>
@@ -62,11 +62,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Active Domain"
             >
               <option value="">All Domains</option>
-              {domains.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.domain_name} {d.routing_path !== '/*' ? `(${d.routing_path})` : ''}
-                </option>
-              ))}
+              {domains
+                .filter((d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost')
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.domain_name} {d.routing_path !== '/*' ? `(${d.routing_path})` : ''}
+                  </option>
+                ))}
             </select>
             <ChevronDown className="w-4 h-4 text-slate-500 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
           </div>

@@ -103,6 +103,7 @@ const dbFilePath = join(process.cwd(), 'openshortlink.sqlite');
 const rawDb = new DatabaseSync(dbFilePath);
 rawDb.exec('PRAGMA foreign_keys = ON;');
 rawDb.exec('CREATE TABLE IF NOT EXISTS _cf_METADATA (id TEXT PRIMARY KEY, applied_at INTEGER);');
+rawDb.exec('CREATE TABLE IF NOT EXISTS abuse_reports (id TEXT PRIMARY KEY, url TEXT, reason TEXT, email TEXT, details TEXT, status TEXT DEFAULT "pending", created_at INTEGER);');
 
 // Run pending migrations
 const migrationsDir = join(process.cwd(), 'migrations');
@@ -225,16 +226,8 @@ async function seedInitialData() {
     console.log('Seeded domain: urlz.gr');
   }
 
-  // Ensure localhost is also present for local dev
-  const existingLocalhost = await DB.prepare('SELECT id FROM domains WHERE normalized_domain_name = ?').bind('localhost').first<{ id: string }>();
-  if (!existingLocalhost) {
-    await DB.prepare(
-      `INSERT INTO domains (
-        id, cloudflare_account_id, domain_name, normalized_domain_name, routing_path,
-        default_redirect_code, status, settings, created_at, updated_at
-      ) VALUES (?, 'local-account', 'localhost', 'localhost', '/*', 301, 'active', ?, ?, ?)`
-    ).bind('dom_localhost', JSON.stringify({ routes: ['/*'] }), now, now).run();
-  }
+  // Ensure localhost is NEVER a domain option - purge any legacy occurrences
+  await DB.prepare("DELETE FROM domains WHERE normalized_domain_name = 'localhost' OR domain_name = 'localhost'").run();
 
   // Seed default admin user if none exists
   const userCount = await DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
@@ -254,6 +247,10 @@ async function seedInitialData() {
     ).run();
     console.log(`Initial admin user created: username="${firstUserUsername}", password="${firstUserPassword}"`);
   }
+
+  // Ensure admin user has explicit user_domains records for both primary domains
+  await DB.prepare("INSERT OR IGNORE INTO user_domains (user_id, domain_id, created_at) VALUES ('user_admin', 'dom_urlzeuorg', ?)").bind(now).run();
+  await DB.prepare("INSERT OR IGNORE INTO user_domains (user_id, domain_id, created_at) VALUES ('user_admin', 'dom_urlzgr', ?)").bind(now).run();
 }
 
 seedInitialData().catch((err) => {
@@ -299,13 +296,14 @@ async function startServer() {
         return res.status(404).json({ success: false, message: 'Link not found' });
       }
 
-      if (!link.password) {
+      const linkPass = link.password_hash || link.password;
+      if (!linkPass) {
         return res.json({ success: true, destination_url: link.destination_url });
       }
 
-      let matches = password === link.password;
+      let matches = password === linkPass;
       if (!matches) {
-        matches = await verifyPassword(password, link.password).catch(() => false);
+        matches = await verifyPassword(password, linkPass).catch(() => false);
       }
 
       if (!matches) {
@@ -317,6 +315,52 @@ async function startServer() {
       return res.json({ success: true, destination_url: link.destination_url });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // Abuse Reports Endpoints (Report phishing, malware, bad reputation)
+  app.post('/api/v1/abuse-reports', express.json(), async (req, res) => {
+    try {
+      const { url, reason, email, details } = req.body || {};
+      if (!url || !reason) {
+        return res.status(400).json({ success: false, message: 'URL and reason are required' });
+      }
+      const id = 'abuse_' + Math.random().toString(36).substring(2, 11);
+      await DB.prepare(
+        'INSERT INTO abuse_reports (id, url, reason, email, details, status, created_at) VALUES (?, ?, ?, ?, ?, "pending", ?)'
+      ).bind(id, url, reason, email || '', details || '', Date.now()).run();
+      return res.json({ success: true, message: 'Abuse report submitted. Thank you for protecting URLZ visitors.' });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  app.get('/api/v1/abuse-reports', async (_req, res) => {
+    try {
+      const rows = await DB.prepare('SELECT * FROM abuse_reports ORDER BY created_at DESC').all<any>();
+      return res.json({ success: true, data: rows.results || [] });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  app.post('/api/v1/abuse-reports/:id/resolve', express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { action } = req.body || {};
+      if (action === 'disable') {
+        const report = await DB.prepare('SELECT url FROM abuse_reports WHERE id = ?').bind(id).first<any>();
+        if (report?.url) {
+          const slug = report.url.replace(/^https?:\/\/[^\/]+\//, '');
+          if (slug) {
+            await DB.prepare("UPDATE links SET status = 'disabled' WHERE slug = ?").bind(slug).run();
+          }
+        }
+      }
+      await DB.prepare("UPDATE abuse_reports SET status = 'resolved' WHERE id = ?").bind(id).run();
+      return res.json({ success: true, message: 'Report marked resolved' });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, message: e.message });
     }
   });
 
@@ -361,12 +405,31 @@ async function startServer() {
       try {
         const link = await DB.prepare('SELECT * FROM links WHERE slug = ?').bind(cleanSlug).first<any>();
         if (link) {
-          // Check if password protected
           const cookies = parseCookies(req.headers.cookie);
+          const linkPass = link.password_hash || link.password;
           const isUnlocked = cookies[`unlocked_${link.id}`] === '1';
 
-          if (link.password && !isUnlocked) {
-            // Render standalone password interstitial HTML
+          let metadata: any = {};
+          try {
+            metadata = typeof link.metadata === 'string' ? JSON.parse(link.metadata) : (link.metadata || {});
+          } catch {}
+
+          // 1. Check expiration date
+          if (link.expires_at && Date.now() > link.expires_at) {
+            return res.status(410).send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Link Expired - URLZ</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#020617;color:#f8fafc;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;margin:0;}.card{background:#0f172a;border:1px solid #1e293b;border-radius:24px;padding:2.5rem;max-width:440px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);}.icon{font-size:3rem;margin-bottom:1rem;}h1{font-size:1.4rem;margin-bottom:0.5rem;}p{color:#94a3b8;font-size:0.9rem;line-height:1.6;margin-bottom:1.5rem;}a{display:inline-block;padding:0.75rem 1.5rem;background:#4f46e5;color:#fff;text-decoration:none;border-radius:12px;font-weight:600;font-size:0.875rem;}</style></head>
+<body><div class="card"><div class="icon">⏳</div><h1>Link Expired</h1><p>This short URL has reached its expiration date and is no longer available.</p><a href="/">Go to URLZ Homepage &rarr;</a></div></body></html>`);
+          }
+
+          // 2. Check maximum visits limit
+          if (metadata.max_clicks && (link.click_count || 0) >= metadata.max_clicks) {
+            return res.status(410).send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Visit Limit Reached - URLZ</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#020617;color:#f8fafc;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;margin:0;}.card{background:#0f172a;border:1px solid #1e293b;border-radius:24px;padding:2.5rem;max-width:440px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);}.icon{font-size:3rem;margin-bottom:1rem;}h1{font-size:1.4rem;margin-bottom:0.5rem;}p{color:#94a3b8;font-size:0.9rem;line-height:1.6;margin-bottom:1.5rem;}a{display:inline-block;padding:0.75rem 1.5rem;background:#4f46e5;color:#fff;text-decoration:none;border-radius:12px;font-weight:600;font-size:0.875rem;}</style></head>
+<body><div class="card"><div class="icon">🛑</div><h1>Visit Limit Reached</h1><p>This short URL has reached its maximum visit limit and is no longer accepting clicks.</p><a href="/">Go to URLZ Homepage &rarr;</a></div></body></html>`);
+          }
+
+          // 3. Password protection interstitial
+          if (linkPass && !isUnlocked) {
             return res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -421,8 +484,77 @@ async function startServer() {
 </html>`);
           }
 
-          if (link.is_cloaked) {
-            // Render iframe cloaking
+          // 4. Splash Page Interstitial (Monetization & Custom Message)
+          if (metadata.splash?.enabled && req.query.skip_splash !== '1') {
+            const countdown = Math.max(Number(metadata.splash.countdown) || 5, 2);
+            const title = metadata.splash.title || 'Sponsored Destination';
+            const customMessage = metadata.splash.message || 'You will be redirected to your destination shortly.';
+            const bannerUrl = metadata.splash.banner_url || '';
+            const buttonText = metadata.splash.button_text || 'Proceed to Destination';
+
+            return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title} - URLZ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 2rem; max-width: 500px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    .badge { display: inline-flex; align-items: center; gap: 0.5rem; background: #1e293b; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; color: #818cf8; margin-bottom: 1.25rem; }
+    .timer { font-family: monospace; font-size: 0.85rem; background: #312e81; color: #c7d2fe; padding: 0.2rem 0.6rem; border-radius: 9999px; }
+    h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .banner { width: 100%; max-height: 200px; object-fit: cover; border-radius: 16px; margin-bottom: 1.25rem; border: 1px solid #334155; }
+    .msg-box { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    p { font-size: 0.9rem; color: #cbd5e1; line-height: 1.6; }
+    .target-preview { font-size: 0.75rem; color: #64748b; font-family: monospace; word-break: break-all; margin-top: 0.5rem; }
+    .btn { display: inline-block; width: 100%; padding: 0.85rem; border-radius: 14px; border: none; background: #4f46e5; color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background 0.2s, opacity 0.2s; text-decoration: none; }
+    .btn.disabled { opacity: 0.5; pointer-events: none; background: #334155; }
+    .btn:hover:not(.disabled) { background: #4338ca; }
+    .footer { margin-top: 1.25rem; font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #1e293b; }
+    .footer a { color: #818cf8; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">
+      <span>✨ ${title}</span>
+      <span id="countdown" class="timer">${countdown}s</span>
+    </div>
+    ${bannerUrl ? `<img src="${bannerUrl}" alt="Banner" class="banner" />` : ''}
+    <div class="msg-box">
+      <p>${customMessage}</p>
+      <div class="target-preview">Target: ${link.destination_url}</div>
+    </div>
+    <a id="proceedBtn" href="${link.destination_url}" class="btn disabled">Please wait ${countdown}s...</a>
+    <div class="footer">
+      <span>🔒 URLZ Interstitial</span>
+      <a href="/report-abuse?url=${encodeURIComponent(link.destination_url)}">Report Abuse</a>
+    </div>
+  </div>
+  <script>
+    let remaining = ${countdown};
+    const cd = document.getElementById('countdown');
+    const btn = document.getElementById('proceedBtn');
+    const interval = setInterval(() => {
+      remaining--;
+      if (remaining > 0) {
+        cd.textContent = remaining + 's';
+        btn.textContent = 'Please wait ' + remaining + 's...';
+      } else {
+        clearInterval(interval);
+        cd.textContent = 'Ready';
+        btn.textContent = '${buttonText} \\u2192';
+        btn.classList.remove('disabled');
+      }
+    }, 1000);
+  </script>
+</body>
+</html>`);
+          }
+
+          if (link.is_cloaked || metadata.is_cloaked) {
             return res.send(`<!DOCTYPE html>
 <html>
 <head>

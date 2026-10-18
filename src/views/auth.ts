@@ -8,12 +8,12 @@
 import { html, raw } from '../utils/html';
 import { LOGO_DATA_URI } from '../utils/logo';
 
-export const loginHtml = (csrfToken: string, nonce: string) => html`<!DOCTYPE html>
+export const loginHtml = (csrfToken: string, nonce: string, showSetup: boolean = false) => html`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - OpenShort.link</title>
+  <title>Login - URLZ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,7 +37,7 @@ export const loginHtml = (csrfToken: string, nonce: string) => html`<!DOCTYPE ht
 </head>
 <body>
   <div class="login-container">
-    <h1><a href="https://openshort.link/" target="_blank" rel="noopener" style="text-decoration: none; color: inherit; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><img src="${raw(LOGO_DATA_URI)}" alt="OpenShort.link" style="height: 160px; width: auto;" /></a></h1>
+    <h1><a href="/" style="text-decoration: none; color: inherit; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><img src="${raw(LOGO_DATA_URI)}" alt="URLZ" style="height: 120px; width: auto;" /></a></h1>
     <form id="login-form">
       <input type="hidden" id="csrf-token" name="_csrf" value="${csrfToken}">
       <div class="form-group">
@@ -61,9 +61,7 @@ export const loginHtml = (csrfToken: string, nonce: string) => html`<!DOCTYPE ht
       <div id="error-message" class="error" role="alert" aria-live="assertive" style="display: none;"></div>
       <button type="submit" class="btn" id="login-btn">Login</button>
     </form>
-    <div class="register-link">
-      <a href="/dashboard/setup">First time? Setup Account</a>
-    </div>
+    ${showSetup ? raw('<div class="register-link"><a href="/dashboard/setup">First time? Setup Account</a></div>') : ''}
   </div>
   <script nonce="${raw(nonce)}">
     // DEBUG: console.log('Login script loaded, nonce applied');

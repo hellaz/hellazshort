@@ -18,7 +18,7 @@ import {
   listDomains,
   buildDomainSettings,
 } from '../db/domains';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, optionalAuth } from '../middleware/auth';
 import { validateJson } from '../middleware/validate';
 import { requireRole, requireDomainAccessFromParam } from '../middleware/authorization';
 import { filterDomainsByAccess } from '../utils/permissions';
@@ -29,15 +29,22 @@ const domainsRouter = new Hono<{ Bindings: Env }>();
 // Schemas imported from ../schemas
 
 // List domains
-domainsRouter.get('/', authMiddleware, async (c) => {
+domainsRouter.get('/', optionalAuth, async (c) => {
   const accountId = c.req.query('account_id');
   const domains = await listDomains(c.env, accountId || undefined);
 
+  const user = (c as any).get?.('user') as User | undefined;
+  if (!user) {
+    // Return active domains for public guests without throwing 401
+    const activeDomains = domains.filter((d) => d.status === 'active' && d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost');
+    return c.json({ success: true, data: activeDomains });
+  }
+
   // Filter by user's domain access (admin sees all)
-  const user = (c as any).get('user') as User;
-  // Use cached accessible_domain_ids from context (already fetched in authMiddleware)
   const accessibleDomainIds = (user as any).accessible_domain_ids;
-  const filteredDomains = await filterDomainsByAccess(c.env, domains, user, accessibleDomainIds);
+  const filteredDomains = (await filterDomainsByAccess(c.env, domains, user, accessibleDomainIds)).filter(
+    (d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost'
+  );
 
   return c.json({ success: true, data: filteredDomains });
 });

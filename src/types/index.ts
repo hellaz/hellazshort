@@ -201,6 +201,17 @@ export interface CachedLink {
   expires_at?: number;
   password_hash?: string;
   link_id?: string; // Link ID for tracking
+  click_count?: number;
+  max_clicks?: number;
+  splash?: {
+    enabled: boolean;
+    countdown: number;
+    title: string;
+    message: string;
+    banner_url?: string;
+    button_text?: string;
+  };
+  is_cloaked?: boolean;
   geo_redirects?: Record<string, string>; // { "US": "https://...", "GB": "https://..." }
   device_redirects?: {
     desktop?: string;

@@ -390,14 +390,24 @@ authRouter.post('/refresh', createRateLimit({
   });
 });
 
-// Get current user
-authRouter.get('/me', authMiddleware, async (c) => {
-  const user = c.get('user') as { id: string; username?: string; email?: string; role: string };
+// Get current user (returns null if unauthenticated without throwing 401)
+authRouter.get('/me', optionalAuth, async (c) => {
+  const user = c.get('user') as { id: string; username?: string; email?: string; role: string } | undefined;
+
+  if (!user) {
+    return c.json({
+      success: true,
+      data: null,
+    });
+  }
 
   // Get full user data to include MFA status
   const fullUser = await getUserById(c.env, user.id);
   if (!fullUser) {
-    throw new HTTPException(404, { message: 'User not found' });
+    return c.json({
+      success: true,
+      data: null,
+    });
   }
 
   return c.json({
@@ -410,6 +420,19 @@ authRouter.get('/me', authMiddleware, async (c) => {
       mfa_enabled: fullUser.mfa_enabled === 1,
       must_change_password: fullUser.must_change_password === 1, // #11
     }
+  });
+});
+
+// Check whether initial setup is completed (used by frontend to hide setup options)
+authRouter.get('/setup-status', async (c) => {
+  const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+  const userCount = existingUsers?.count || 0;
+  return c.json({
+    success: true,
+    data: {
+      is_setup_completed: userCount > 0,
+      allows_registration: userCount === 0,
+    },
   });
 });
 

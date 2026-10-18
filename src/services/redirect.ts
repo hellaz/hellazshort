@@ -15,6 +15,7 @@ import { trackClick, parseUserAgent, extractUtmParams, hashIpAddress, formatDate
 import { isBot } from '../utils/bots';
 import { renderOgPreviewPage } from '../views/ogPreview';
 import { renderPixelInterstitial, pixelInterstitialCsp, isHttpUrl, generateNonce } from '../views/pixelInterstitial';
+import { renderPasswordPromptPage, renderSplashPage, renderCloakedPage, renderExpiredPage } from '../views/interstitial';
 
 /**
  * Merges query parameters from the request URL into the destination URL.
@@ -120,10 +121,23 @@ export async function handleRedirect(
   }
 
   // Check if link is expired (from cache)
-  // Fix: expires_at is in seconds (Unix timestamp), Date.now() is in milliseconds
-  // We need to compare seconds with seconds
-  if (cached.expires_at && cached.expires_at < Math.floor(Date.now() / 1000)) {
-    return new Response('Link has expired', { status: 410 });
+  if (cached.expires_at) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expiresSec = cached.expires_at > 1e11 ? Math.floor(cached.expires_at / 1000) : cached.expires_at;
+    if (expiresSec < nowSec) {
+      return new Response(renderExpiredPage('expired'), {
+        status: 410,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+  }
+
+  // Check maximum number of visits limit
+  if (cached.max_clicks && ((cached.click_count || 0) >= cached.max_clicks)) {
+    return new Response(renderExpiredPage('limit'), {
+      status: 410,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
   }
 
   // Check link status (from cache) — a disabled/archived link may still be cached
@@ -200,6 +214,46 @@ export async function handleRedirect(
   const requestUrl = new URL(request.url);
   const finalDestinationUrl = mergeQueryParams(resolvedUrl, requestUrl);
   // DEBUG: console.log('[REDIRECT] Final destination URL:', finalDestinationUrl);
+
+  // Password protection check
+  if (cached.password_hash) {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const isUnlocked = cookieHeader.includes(`unlocked_${cached.link_id}=1`);
+    if (!isUnlocked && !isBot(ogUserAgent)) {
+      return new Response(renderPasswordPromptPage(slug, cached.link_id), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'private, no-store, max-age=0',
+          'Vary': 'Cookie, User-Agent',
+        },
+      });
+    }
+  }
+
+  // Splash page interstitial (monetization & branding countdown)
+  if (cached.splash?.enabled && !isBot(ogUserAgent) && requestUrl.searchParams.get('skip_splash') !== '1') {
+    return new Response(renderSplashPage(cached.splash, finalDestinationUrl), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'private, no-store, max-age=0',
+        'Vary': 'User-Agent',
+      },
+    });
+  }
+
+  // Cloaking (full-page iframe mask)
+  if (cached.is_cloaked && !isBot(ogUserAgent)) {
+    return new Response(renderCloakedPage(finalDestinationUrl, cached.og_meta?.og_title || 'URLZ'), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'public, max-age=300',
+        'Vary': 'User-Agent',
+      },
+    });
+  }
 
   // Track click (async, non-blocking) - use waitUntil to ensure it completes
   // Get link_id from cache (should always be present now after cache refresh)

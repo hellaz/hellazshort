@@ -35,6 +35,7 @@ import { apiKeysRouter } from './api/apiKeys';
 import { settingsRouter } from './api/settings';
 import { importRouter } from './api/import';
 import { staticRouter } from './api/static';
+import { abuseReportsRouter } from './api/abuseReports';
 // Dynamic imports only for large dashboard/auth views (reduces bundle size)
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -155,7 +156,12 @@ app.get('/dashboard/login', async (c) => {
   const { loginHtml } = await import('./views/auth');
   const csrfToken = c.get('csrfToken') || '';
   const nonce = c.get('nonce') || '';
-  return c.html(loginHtml(csrfToken, nonce));
+  let showSetup = false;
+  try {
+    const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+    showSetup = (existingUsers?.count || 0) === 0;
+  } catch {}
+  return c.html(loginHtml(csrfToken, nonce, showSetup));
 });
 
 // Dashboard - Setup page (moved from /setup to /dashboard/setup)
@@ -274,6 +280,7 @@ app.route('/dashboard/api/v1/pixels', pixelsRouter);
 app.route('/dashboard/api/v1/categories', categoriesRouter);
 app.route('/dashboard/api/v1/api-keys', apiKeysRouter);
 app.route('/dashboard/api/v1/settings', settingsRouter);
+app.route('/dashboard/api/v1/abuse-reports', abuseReportsRouter);
 
 // Auto-create the first user from environment variables. Shared by the /dashboard/api
 // and /api mounts below. Gated by SETUP_TOKEN (consistent with /register) in addition
@@ -367,6 +374,7 @@ app.route('/api/v1/pixels', pixelsRouter);
 app.route('/api/v1/categories', categoriesRouter);
 app.route('/api/v1/api-keys', apiKeysRouter);
 app.route('/api/v1/settings', settingsRouter);
+app.route('/api/v1/abuse-reports', abuseReportsRouter);
 
 // ============================================================================
 // LINK REDIRECT HANDLER - Catch-all for short link redirects

@@ -303,10 +303,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpen && (
         <div className="p-4 border-t border-slate-800/80 text-[11px] text-slate-500 space-y-1">
           <div className="flex items-center justify-between text-slate-400">
-            <span>OpenShort.link</span>
-            <span className="font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded">v0.11.0</span>
+            <span>URLZ Pro</span>
+            <span className="font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded">v2.4.0</span>
           </div>
-          <p className="text-[10px]">Cloudflare edge shortener</p>
+          <p className="text-[10px]">Cloudflare edge link platform</p>
         </div>
       )}
     </aside>
