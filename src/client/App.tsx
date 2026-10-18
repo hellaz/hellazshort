@@ -11,6 +11,7 @@ import { DomainsView } from './views/DomainsView';
 import { PixelsView } from './views/PixelsView';
 import { IntegrationsView } from './views/IntegrationsView';
 import { SettingsView } from './views/SettingsView';
+import { MonetizationView } from './views/MonetizationView';
 import { HelpView } from './views/HelpView';
 import { AuthView } from './views/AuthView';
 import { PublicLandingView } from './views/PublicLandingView';
@@ -240,6 +241,9 @@ export const AppContent: React.FC = () => {
 
           {/* Pixels */}
           {currentPage === 'pixels' && <PixelsView />}
+
+          {/* Monetization & Revenue */}
+          {currentPage === 'monetization' && <MonetizationView />}
 
           {/* Integrations */}
           {currentPage === 'integrations' && <IntegrationsView />}

@@ -53,6 +53,8 @@ import { resolveLinkPixelIds, PixelError } from '../services/pixelLibrary';
 import { parseBulkRequest, runBulk } from '../services/bulkLinks';
 import { generateId, generateSlug } from '../utils/id';
 import { isValidUrl, isValidSlug, normalizeUrl, sanitizeHtml, sanitizeSearchInput, validateNumericBoundary, isReservedSlug } from '../utils/validation';
+import { validateUrlSecurity } from '../utils/urlFilter';
+import { verifyCaptchaResponse } from '../utils/captcha';
 import { hashPassword, verifyPassword } from '../utils/crypto';
 import { detectCountryCode, getCountryName } from '../utils/countryMappings';
 import { authMiddleware, authOrApiKeyMiddleware } from '../middleware/auth';
@@ -572,9 +574,31 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
     }
   }
 
-  // Validate URL
+  // Validate URL structure
   if (!isValidUrl(validated.destination_url)) {
     throw new HTTPException(400, { message: 'Invalid destination URL' });
+  }
+
+  // Validate URL Security (TLD Blacklist, Malware & Inappropriate Content Filtering)
+  const securityCheck = validateUrlSecurity(validated.destination_url);
+  if (!securityCheck.safe) {
+    throw new HTTPException(400, {
+      message: securityCheck.reason || 'Destination URL failed security & domain safety checks.',
+    });
+  }
+
+  // Require Captcha for unauthenticated guest requests
+  if (!user && !apiKey) {
+    const body: any = await c.req.json().catch(() => ({}));
+    const captchaRes = await verifyCaptchaResponse(
+      c.env,
+      body.captcha_token,
+      body.captcha_answer,
+      body.captcha_solution
+    );
+    if (!captchaRes.valid) {
+      throw new HTTPException(400, { message: captchaRes.message || 'Captcha verification failed for anonymous request.' });
+    }
   }
 
   // Check for infinite redirect loop
@@ -657,16 +681,16 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
     }
   }
 
-  // Prepare metadata with route & deep_link
+  // Prepare metadata with route, deep_link, fallback_url, overlay, media_embed
   let metadata: string | undefined = undefined;
-  if (validated.metadata || effectiveRoute || validated.deep_link) {
+  if (validated.metadata || effectiveRoute || validated.deep_link || validated.fallback_url || validated.redirect_type || validated.overlay || validated.media_embed) {
     const metadataObj = validated.metadata ? { ...validated.metadata } : {};
-    if (effectiveRoute) {
-      metadataObj.route = effectiveRoute;
-    }
-    if (validated.deep_link) {
-      metadataObj.deep_link = validated.deep_link;
-    }
+    if (effectiveRoute) metadataObj.route = effectiveRoute;
+    if (validated.deep_link) metadataObj.deep_link = validated.deep_link;
+    if (validated.fallback_url) metadataObj.fallback_url = validated.fallback_url;
+    if (validated.redirect_type) metadataObj.redirect_type = validated.redirect_type;
+    if (validated.overlay) metadataObj.overlay = validated.overlay;
+    if (validated.media_embed) metadataObj.media_embed = validated.media_embed;
     metadata = JSON.stringify(metadataObj);
   }
 
@@ -855,6 +879,26 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
   if (validated.deep_link !== undefined) {
     const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
     updates.metadata = JSON.stringify({ ...currentMetadata, deep_link: validated.deep_link });
+  }
+
+  if (validated.fallback_url !== undefined) {
+    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
+    updates.metadata = JSON.stringify({ ...currentMetadata, fallback_url: validated.fallback_url });
+  }
+
+  if (validated.redirect_type !== undefined) {
+    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
+    updates.metadata = JSON.stringify({ ...currentMetadata, redirect_type: validated.redirect_type });
+  }
+
+  if (validated.overlay !== undefined) {
+    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
+    updates.metadata = JSON.stringify({ ...currentMetadata, overlay: validated.overlay });
+  }
+
+  if (validated.media_embed !== undefined) {
+    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
+    updates.metadata = JSON.stringify({ ...currentMetadata, media_embed: validated.media_embed });
   }
 
   // Validate pixel ids against the link's own domain before writing anything.

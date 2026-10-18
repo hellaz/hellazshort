@@ -258,3 +258,164 @@ export function renderDeepLinkPage(
 </body>
 </html>`;
 }
+
+export interface MediaEmbedInfo {
+  type: 'youtube' | 'vimeo' | 'dailymotion' | 'tiktok' | 'spotify' | 'soundcloud' | null;
+  embedUrl: string | null;
+  id: string | null;
+}
+
+export function detectMediaEmbed(url: string): MediaEmbedInfo {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace('www.', '');
+
+    if (host.includes('youtube.com') || host.includes('youtu.be')) {
+      let id = '';
+      if (host.includes('youtu.be')) {
+        id = u.pathname.replace(/^\//, '');
+      } else if (u.pathname.startsWith('/shorts/')) {
+        id = u.pathname.replace('/shorts/', '');
+      } else {
+        id = u.searchParams.get('v') || '';
+      }
+      if (id) {
+        return { type: 'youtube', embedUrl: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`, id };
+      }
+    }
+
+    if (host.includes('vimeo.com')) {
+      const match = u.pathname.match(/\/(\d+)/);
+      if (match && match[1]) {
+        return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${match[1]}?autoplay=1`, id: match[1] };
+      }
+    }
+
+    if (host.includes('dailymotion.com') || host.includes('dai.ly')) {
+      const parts = u.pathname.split('/');
+      const id = parts[parts.length - 1];
+      if (id) {
+        return { type: 'dailymotion', embedUrl: `https://www.dailymotion.com/embed/video/${id}?autoplay=1`, id };
+      }
+    }
+
+    if (host.includes('spotify.com')) {
+      const path = u.pathname.replace(/^\//, '');
+      if (path) {
+        return { type: 'spotify', embedUrl: `https://open.spotify.com/embed/${path}`, id: path };
+      }
+    }
+
+    if (host.includes('tiktok.com')) {
+      const match = u.pathname.match(/\/video\/(\d+)/);
+      if (match && match[1]) {
+        return { type: 'tiktok', embedUrl: `https://www.tiktok.com/embed/v2/${match[1]}`, id: match[1] };
+      }
+    }
+  } catch {}
+
+  return { type: null, embedUrl: null, id: null };
+}
+
+export function renderMediaEmbedPage(
+  mediaInfo: MediaEmbedInfo,
+  destinationUrl: string,
+  title?: string,
+  description?: string
+): string {
+  const safeTitle = escapeHtml(title || 'Media Player');
+  const safeDesc = escapeHtml(description || 'Click play to watch or listen to media.');
+  const safeDest = escapeHtml(destinationUrl);
+  const safeEmbed = mediaInfo.embedUrl ? escapeHtml(mediaInfo.embedUrl) : safeDest;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${safeTitle} - URLZ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; }
+    .container { max-width: 800px; width: 100%; text-align: center; }
+    .badge { display: inline-block; background: #1e293b; color: #818cf8; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { font-size: 0.9rem; color: #94a3b8; margin-bottom: 1.5rem; line-height: 1.5; }
+    .player-box { width: 100%; aspect-ratio: 16 / 9; max-height: 480px; background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); margin-bottom: 1.5rem; }
+    iframe { width: 100%; height: 100%; border: none; }
+    .btn-bar { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border-radius: 12px; background: #4f46e5; color: #fff; font-weight: 700; font-size: 0.875rem; text-decoration: none; transition: background 0.2s; }
+    .btn:hover { background: #4338ca; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge">🎬 Dedicated Media Player</div>
+    <h1>${safeTitle}</h1>
+    <p>${safeDesc}</p>
+    <div class="player-box">
+      <iframe src="${safeEmbed}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+    </div>
+    <div class="btn-bar">
+      <a href="${safeDest}" target="_blank" rel="noopener noreferrer" class="btn">Watch on Original Platform &rarr;</a>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export function renderOverlayPage(
+  destinationUrl: string,
+  overlay: {
+    title?: string;
+    message?: string;
+    button_text?: string;
+    button_url?: string;
+    position?: 'bottom-right' | 'bottom-left' | 'top-banner';
+  }
+): string {
+  const safeDest = escapeHtml(destinationUrl);
+  const title = escapeHtml(overlay.title || 'Special Offer');
+  const message = escapeHtml(overlay.message || 'Check out this exclusive deal from URLZ!');
+  const buttonText = escapeHtml(overlay.button_text || 'Learn More');
+  const buttonUrl = overlay.button_url ? escapeHtml(overlay.button_url) : safeDest;
+
+  const isTop = overlay.position === 'top-banner';
+  const isLeft = overlay.position === 'bottom-left';
+
+  let posCss = 'bottom: 24px; right: 24px; max-width: 380px;';
+  if (isTop) posCss = 'top: 0; left: 0; right: 0; width: 100%; border-radius: 0; border-bottom: 2px solid #6366f1;';
+  else if (isLeft) posCss = 'bottom: 24px; left: 24px; max-width: 380px;';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>URLZ</title>
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+    iframe { border: none; width: 100%; height: 100%; }
+    .overlay-card { position: fixed; z-index: 999999; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 20px; padding: 1.25rem; box-shadow: 0 20px 40px rgba(0,0,0,0.6); ${posCss} }
+    .overlay-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+    .overlay-title { font-size: 0.95rem; font-weight: 700; color: #818cf8; }
+    .close-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 0 0.25rem; }
+    .close-btn:hover { color: #fff; }
+    .overlay-msg { font-size: 0.825rem; color: #cbd5e1; line-height: 1.4; margin-bottom: 1rem; }
+    .overlay-btn { display: block; text-align: center; background: #4f46e5; color: #fff; text-decoration: none; padding: 0.65rem 1rem; border-radius: 10px; font-weight: 700; font-size: 0.85rem; transition: background 0.2s; }
+    .overlay-btn:hover { background: #4338ca; }
+  </style>
+</head>
+<body>
+  <iframe src="${safeDest}"></iframe>
+  <div id="overlayBox" class="overlay-card">
+    <div class="overlay-header">
+      <span class="overlay-title">✨ ${title}</span>
+      <button class="close-btn" onclick="document.getElementById('overlayBox').style.display='none'">&times;</button>
+    </div>
+    <div class="overlay-msg">${message}</div>
+    <a href="${buttonUrl}" target="_blank" rel="noopener noreferrer" class="overlay-btn">${buttonText} &rarr;</a>
+  </div>
+</body>
+</html>`;
+}

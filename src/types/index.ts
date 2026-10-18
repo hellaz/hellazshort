@@ -232,6 +232,20 @@ export interface CachedLink {
     android_url?: string;
     desktop_url?: string;
   };
+  fallback_url?: string;
+  redirect_type?: 'direct' | 'frame' | 'splash' | 'overlay' | 'media';
+  overlay?: {
+    enabled: boolean;
+    title?: string;
+    message?: string;
+    button_text?: string;
+    button_url?: string;
+    position?: 'bottom-right' | 'bottom-left' | 'top-banner';
+  };
+  media_embed?: {
+    enabled: boolean;
+    auto_detect?: boolean;
+  };
   og_meta?: {
     og_title?: string;
     og_description?: string;

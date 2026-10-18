@@ -81,6 +81,20 @@ export const deepLinkSchema = z.object({
   desktop_url: z.string().optional(),
 });
 
+export const overlaySchema = z.object({
+  enabled: z.boolean().default(false),
+  title: z.string().max(255).optional(),
+  message: z.string().max(1000).optional(),
+  button_text: z.string().max(100).optional(),
+  button_url: z.string().optional(),
+  position: z.enum(['bottom-right', 'bottom-left', 'top-banner']).default('bottom-right'),
+});
+
+export const mediaEmbedSchema = z.object({
+  enabled: z.boolean().default(false),
+  auto_detect: z.boolean().default(true),
+});
+
 const baseLinkSchema = z.object({
   destination_url: z.string().url(),
   title: z.string().max(255).optional(),
@@ -90,12 +104,16 @@ const baseLinkSchema = z.object({
   category_id: z.string().optional(),
   expires_at: z.number().optional(),
   password: z.string().optional(),
+  fallback_url: z.string().optional(),
+  redirect_type: z.enum(['direct', 'frame', 'splash', 'overlay', 'media']).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   geo_redirects: z.array(geoRedirectSchema).max(10).optional(),
   device_redirects: z.array(deviceRedirectSchema).optional(),
   city_redirects: z.array(cityRedirectSchema).max(20).optional(),
   os_redirects: z.array(osRedirectSchema).max(20).optional(),
   deep_link: deepLinkSchema.optional(),
+  overlay: overlaySchema.optional(),
+  media_embed: mediaEmbedSchema.optional(),
   og_meta: ogMetaSchema.optional(),
   pixel_ids: z.array(z.string().min(1)).max(5).optional(),
 });

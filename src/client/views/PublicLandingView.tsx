@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiRequest } from '../api';
 import { useToast } from '../components/Toast';
+import { CaptchaWidget } from '../components/CaptchaWidget';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Link as LinkIcon,
@@ -51,6 +52,8 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [captchaData, setCaptchaData] = useState<{ token?: string; answer?: string; solution?: string }>({});
 
   const displayDomain = activeDomainName || window.location.host;
 
@@ -58,6 +61,11 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
     e.preventDefault();
     if (!destinationUrl.trim()) {
       showToast('Please enter a destination URL', 'error');
+      return;
+    }
+
+    if (!isLoggedIn && !captchaVerified) {
+      showToast('Please solve the anti-bot verification challenge.', 'error');
       return;
     }
 
@@ -73,6 +81,9 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
         slug: customAlias.trim() || undefined,
         password: password.trim() || undefined,
         redirect_code: 301,
+        captcha_token: captchaData.token,
+        captcha_answer: captchaData.answer,
+        captcha_solution: captchaData.solution,
       };
 
       const res = await apiRequest('links', {
@@ -266,6 +277,18 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
                       />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Anti-Bot Captcha Widget for Guest Users */}
+              {!isLoggedIn && (
+                <div className="pt-2 border-t border-slate-800">
+                  <CaptchaWidget
+                    onVerify={(data) => {
+                      setCaptchaVerified(Boolean(data.token || data.answer));
+                      setCaptchaData(data);
+                    }}
+                  />
                 </div>
               )}
             </form>

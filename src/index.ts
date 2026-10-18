@@ -36,6 +36,7 @@ import { settingsRouter } from './api/settings';
 import { importRouter } from './api/import';
 import { staticRouter } from './api/static';
 import { abuseReportsRouter } from './api/abuseReports';
+import { monetizationRouter } from './api/monetization';
 // Dynamic imports only for large dashboard/auth views (reduces bundle size)
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -281,6 +282,7 @@ app.route('/dashboard/api/v1/categories', categoriesRouter);
 app.route('/dashboard/api/v1/api-keys', apiKeysRouter);
 app.route('/dashboard/api/v1/settings', settingsRouter);
 app.route('/dashboard/api/v1/abuse-reports', abuseReportsRouter);
+app.route('/dashboard/api/v1/monetization', monetizationRouter);
 
 // Auto-create the first user from environment variables. Shared by the /dashboard/api
 // and /api mounts below. Gated by SETUP_TOKEN (consistent with /register) in addition
@@ -375,6 +377,7 @@ app.route('/api/v1/categories', categoriesRouter);
 app.route('/api/v1/api-keys', apiKeysRouter);
 app.route('/api/v1/settings', settingsRouter);
 app.route('/api/v1/abuse-reports', abuseReportsRouter);
+app.route('/api/v1/monetization', monetizationRouter);
 
 // ============================================================================
 // LINK REDIRECT HANDLER - Catch-all for short link redirects

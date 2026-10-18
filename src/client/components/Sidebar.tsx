@@ -16,6 +16,7 @@ import {
   FileText,
   Sliders,
   Sparkles,
+  DollarSign,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -172,6 +173,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <Share2 className="w-5 h-5 shrink-0" />
           {isOpen && <span>Pixel Library</span>}
+        </button>
+
+        {/* Monetization & Revenue */}
+        <button
+          onClick={() => onNavigate('monetization')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+            isCurrent('monetization')
+              ? 'bg-emerald-600 text-white'
+              : 'hover:bg-slate-800 hover:text-white text-slate-300'
+          }`}
+          title="Monetization & Ads"
+        >
+          <DollarSign className="w-5 h-5 shrink-0 text-emerald-400" />
+          {isOpen && <span>Monetization &amp; Ads</span>}
         </button>
 
         {/* Integrations & API Keys */}

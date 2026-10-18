@@ -285,5 +285,43 @@ settingsRouter.put('/bot-protection', authMiddleware, async (c) => {
   return c.json({ success: true, data: updated, message: 'Bot protection settings updated successfully' });
 });
 
+// Captcha & Safety Filters Settings
+settingsRouter.get('/captcha', authMiddleware, async (c) => {
+  const row = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'captcha_settings'").first<any>();
+  let data = { enabled: true, provider: 'built_in', site_key: '', secret_key: '', blocked_domains: [] };
+  if (row && row.value) {
+    try {
+      data = JSON.parse(row.value);
+    } catch {}
+  }
+  return c.json({ success: true, data });
+});
+
+settingsRouter.post('/captcha', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
+    throw new HTTPException(403, { message: 'Insufficient permissions' });
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const valueStr = JSON.stringify({
+    enabled: Boolean(body.enabled),
+    provider: body.provider || 'built_in',
+    site_key: body.site_key || '',
+    secret_key: body.secret_key || '',
+    blocked_domains: Array.isArray(body.blocked_domains) ? body.blocked_domains : [],
+    updated_at: Date.now(),
+    updated_by: user.id,
+  });
+
+  await c.env.DB.prepare(
+    "INSERT INTO settings (key, value, updated_at, updated_by) VALUES ('captcha_settings', ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by"
+  )
+    .bind(valueStr, Date.now(), user.id)
+    .run();
+
+  return c.json({ success: true, message: 'Captcha & security filter settings saved successfully' });
+});
+
 export { settingsRouter };
 

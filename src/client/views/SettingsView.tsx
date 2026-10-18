@@ -69,6 +69,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
+  // Captcha & Safety Filters State
+  const [captchaEnabled, setCaptchaEnabled] = useState(true);
+  const [captchaProvider, setCaptchaProvider] = useState<'built_in' | 'turnstile' | 'recaptcha' | 'solvemedia'>('built_in');
+  const [captchaSiteKey, setCaptchaSiteKey] = useState('');
+  const [captchaSecretKey, setCaptchaSecretKey] = useState('');
+  const [blockedDomainsInput, setBlockedDomainsInput] = useState('');
+  const [captchaSaving, setCaptchaSaving] = useState(false);
+
   useEffect(() => {
     setActiveTab(subPage);
   }, [subPage]);
@@ -81,6 +89,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           setRootMode(res.data.mode || 'branded');
           setRootRedirectUrl(res.data.redirect_url || '');
           setRootHtml(res.data.html || '');
+        }
+      });
+    }
+
+    if (activeTab === 'captcha') {
+      apiRequest('settings/captcha').then((res) => {
+        if (res.success && res.data) {
+          setCaptchaEnabled(res.data.enabled !== false);
+          setCaptchaProvider(res.data.provider || 'built_in');
+          setCaptchaSiteKey(res.data.site_key || '');
+          setCaptchaSecretKey(res.data.secret_key || '');
+          setBlockedDomainsInput(Array.isArray(res.data.blocked_domains) ? res.data.blocked_domains.join(', ') : '');
         }
       });
     }
@@ -223,6 +243,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleSaveCaptchaSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCaptchaSaving(true);
+    try {
+      const res = await apiRequest('settings/captcha', {
+        method: 'POST',
+        body: JSON.stringify({
+          enabled: captchaEnabled,
+          provider: captchaProvider,
+          site_key: captchaSiteKey,
+          secret_key: captchaSecretKey,
+          blocked_domains: blockedDomainsInput.split(',').map((s) => s.trim()).filter(Boolean),
+        }),
+      });
+      if (res.success) {
+        showToast('Captcha & security filter settings saved successfully!', 'success');
+      } else {
+        showToast(res.error || 'Failed to save captcha settings', 'error');
+      }
+    } finally {
+      setCaptchaSaving(false);
+    }
+  };
+
   // Add User (Owner/Admin)
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,6 +315,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           { id: 'account', label: 'Account Information', icon: UserCheck },
           { id: 'security', label: 'Security & 2FA', icon: Shield },
           { id: 'default-page', label: 'Default Root Page', icon: Sliders },
+          { id: 'captcha', label: 'Captcha & Safety Filters', icon: Shield },
           ...(user?.role === 'owner' || user?.role === 'admin'
             ? [
                 { id: 'users', label: 'User Management', icon: Users },
@@ -556,6 +601,110 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl cursor-pointer transition-colors"
             >
               {rootSaving ? 'Saving...' : 'Save Root Page Config'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* TAB: CAPTCHA & SAFETY FILTERS */}
+      {activeTab === 'captcha' && (
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+          <div>
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Anti-Bot Captcha &amp; Domain Filter System</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Configure anti-spam captcha challenges for anonymous link creation and define custom domain blacklists.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveCaptchaSettings} className="space-y-5 text-xs">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/80">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={captchaEnabled}
+                  onChange={(e) => setCaptchaEnabled(e.target.checked)}
+                  className="rounded text-indigo-600 w-4 h-4"
+                />
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-white block">
+                    Require Captcha Verification for Anonymous / Guest Users
+                  </span>
+                  <span className="text-[11px] text-slate-500 block">
+                    Registered logged-in users bypass captcha automatically for frictionless link creation.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Captcha Provider Engine
+                </label>
+                <select
+                  value={captchaProvider}
+                  onChange={(e) => setCaptchaProvider(e.target.value as any)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                >
+                  <option value="built_in">Built-In Math Security Challenge (Zero External Keys Needed)</option>
+                  <option value="turnstile">Cloudflare Turnstile</option>
+                  <option value="recaptcha">Google reCAPTCHA v2 / v3</option>
+                  <option value="solvemedia">SolveMedia Captcha</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Site Key (Optional for External Captchas)
+                </label>
+                <input
+                  type="text"
+                  placeholder="0x4AAAAAA..."
+                  value={captchaSiteKey}
+                  onChange={(e) => setCaptchaSiteKey(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Secret Key (Optional for External Captchas)
+              </label>
+              <input
+                type="password"
+                placeholder="0x4AAAAAA..."
+                value={captchaSecretKey}
+                onChange={(e) => setCaptchaSecretKey(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Custom Domain &amp; TLD Blacklist (Comma separated)
+              </label>
+              <textarea
+                rows={3}
+                placeholder="badsite.com, grabify.link, iplogger.org, spam-domain.net"
+                value={blockedDomainsInput}
+                onChange={(e) => setBlockedDomainsInput(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono text-xs"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Restricted TLDs (.zip, .mov, .su, .xyz, etc.) and malware/phishing keywords are automatically blocked by default.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={captchaSaving}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-md cursor-pointer transition-colors disabled:opacity-50"
+            >
+              {captchaSaving ? 'Saving Settings...' : 'Save Security Settings'}
             </button>
           </form>
         </div>

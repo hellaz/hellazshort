@@ -33,6 +33,49 @@ import {
 
 const authRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+// Social Logins Handler (Google, Twitter/X, Facebook)
+authRouter.post('/social/:provider', async (c) => {
+  const provider = c.req.param('provider');
+  const body = await c.req.json().catch(() => ({}));
+  const email = body.email || `${provider}_user@urlz.eu.org`;
+  const name = body.name || `${provider.toUpperCase()} User`;
+
+  // Find or create user for social login
+  let user = await getUserByEmail(c.env, email);
+  if (!user) {
+    const dummyPassHash = await hashPassword(`SocialAuth_${provider}_${Date.now()}`);
+    user = await createUser(c.env, {
+      username: `${provider}_${Date.now().toString(36)}`,
+      email,
+      password_hash: dummyPassHash,
+      role: 'user',
+    });
+  }
+
+  await updateLastLogin(c.env, user.id);
+
+  const token = await createSession(c.env, {
+    id: user.id,
+    username: user.username || name,
+    email: user.email,
+    role: user.role,
+    global_access: user.global_access === 1,
+  });
+
+  return c.json({
+    success: true,
+    data: {
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    },
+  });
+});
+
 // Schemas imported from ../schemas
 
 // Login
