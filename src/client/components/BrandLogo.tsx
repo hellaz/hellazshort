@@ -37,17 +37,21 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
   return (
     <div className={`inline-flex items-center gap-2.5 select-none ${height} ${className}`}>
-      {/* Official URLZ Logo Asset (Auto light/dark inversion) */}
+      {/* Official URLZ Background / SQR & Inverted Logo Asset */}
       <div className={`relative ${iconSize} shrink-0 flex items-center justify-center overflow-hidden rounded-xl shadow-xs border border-white/10 dark:border-white/20`}>
         <img
-          src="/logo.png"
+          src="/BackgroundSQR.png"
           alt="URLZ"
-          className="w-full h-full object-cover dark:hidden"
+          className={`w-full h-full object-cover ${
+            variant === 'dark' ? 'hidden' : variant === 'light' ? 'block' : 'dark:hidden'
+          }`}
         />
         <img
           src="/auto_urlz_logo_invert.png"
           alt="URLZ"
-          className="w-full h-full object-cover hidden dark:block"
+          className={`w-full h-full object-cover ${
+            variant === 'dark' ? 'block' : variant === 'light' ? 'hidden' : 'hidden dark:block'
+          }`}
         />
       </div>
 

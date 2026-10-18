@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiRequest } from '../api';
 import { useToast } from '../components/Toast';
+import { BrandLogo } from '../components/BrandLogo';
 import { CaptchaWidget } from '../components/CaptchaWidget';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -130,19 +131,17 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
       {/* Navigation Header */}
       <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
-              <LinkIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xl font-black tracking-tight bg-linear-to-r from-white via-slate-200 to-indigo-200 bg-clip-text text-transparent">
-                URLZ
-              </span>
-              <span className="text-[10px] font-mono text-indigo-400 block -mt-1 font-semibold">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-3 focus:outline-hidden cursor-pointer"
+          >
+            <BrandLogo variant="dark" size="md" />
+            <div className="flex flex-col">
+              <span className="text-[10px] font-mono text-indigo-400 block font-semibold leading-none">
                 {displayDomain}
               </span>
             </div>
-          </div>
+          </button>
 
           <div className="flex items-center gap-3">
             {isLoggedIn ? (
