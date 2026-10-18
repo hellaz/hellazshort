@@ -37,7 +37,7 @@ export const loginHtml = (csrfToken: string, nonce: string, showSetup: boolean =
 </head>
 <body>
   <div class="login-container">
-    <h1><a href="/" style="text-decoration: none; color: inherit; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><img src="${raw(LOGO_DATA_URI)}" alt="URLZ" style="height: 120px; width: auto;" /></a></h1>
+    <h1><a href="/" style="text-decoration: none; color: inherit; display: flex; align-items: center; justify-content: center;"><img src="${raw(LOGO_DATA_URI)}" alt="URLZ" style="height: 48px; width: auto;" /></a></h1>
     <form id="login-form">
       <input type="hidden" id="csrf-token" name="_csrf" value="${csrfToken}">
       <div class="form-group">
