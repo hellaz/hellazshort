@@ -1,5 +1,6 @@
 import React from 'react';
 import { Domain, User } from '../types';
+import { BrandLogo } from './BrandLogo';
 import { Moon, Sun, LogOut, Plus, Link as LinkIcon, Shield, ChevronDown } from 'lucide-react';
 
 interface NavbarProps {
@@ -32,22 +33,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate('dashboard')}
-            className="flex items-center gap-2.5 text-left focus:outline-hidden"
+            className="flex items-center gap-2.5 text-left focus:outline-hidden cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-              <LinkIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="font-bold text-lg tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                URLZ
-                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 font-semibold uppercase tracking-wider">
-                  Pro
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono leading-none">
-                Link Management Platform
-              </p>
-            </div>
+            <BrandLogo variant="auto" size="md" />
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 font-semibold uppercase tracking-wider">
+              Pro
+            </span>
           </button>
         </div>
 

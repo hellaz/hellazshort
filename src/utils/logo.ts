@@ -1,5 +1,29 @@
 /**
- * URLZ Brand Logo Data URI
+ * URLZ Official Brand Logo SVGs & Data URIs for Light/Dark themes
  */
 
-export const LOGO_DATA_URI = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgNjAiIHdpZHRoPSIyNDAiIGhlaWdodD0iNjAiPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0idXJsekdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2MzY2ZjEiLz48c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iI2E4NTVmNyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2VjNDg5OSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHg9IjQiIHk9IjYiIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgcng9IjE0IiBmaWxsPSJ1cmwoI3VybHpHcmFkKSIvPjxwYXRoIGQ9Ik0zMiAyNGw1LTVhNi41IDYuNSAwIDAgMSA5LjIgOS4ybC01IDVhNi41IDYuNSAwIDAgMS05LjIgME0yNCAzNmwtNSA1YTYuNSA2LjUgMCAwIDEtOS4yLTkuMmw1LTVhNi41IDYuNSAwIDAgMSA5LjIgME0yMCAzMmwxNi0xNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjMuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHRleHQgeD0iNjQiIHk9IjQyIiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSwgQmxpbmtNYWNTeXN0ZW1Gb250LCAnU2Vnb2UgVUknLCBSb2JvdG8sIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI5MDAiIGZvbnQtc2l6ZT0iMzQiIGZpbGw9IiM2MzY2ZjEiIGxldHRlci1zcGFjaW5nPSItMC41Ij5VUkxaPC90ZXh0Pjwvc3ZnPg==";
+// Square Arrow Logo Mark SVG
+export const URLZ_ICON_SVG = `<svg viewBox="0 0 100 100" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 22 28 V 70 C 22 76 28 82 34 82 H 76 V 68 H 36 V 28 H 22 Z" fill="#808bc4"/>
+  <path d="M 40 60 L 66 34 M 50 34 H 68 V 52" stroke="#808bc4" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+// Full Dark Theme Logo (White text for dark backgrounds)
+export const URLZ_LOGO_DARK_SVG = `<svg viewBox="0 0 240 60" width="180" height="45" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(0, 5) scale(0.5)">
+    <path d="M 22 28 V 70 C 22 76 28 82 34 82 H 76 V 68 H 36 V 28 H 22 Z" fill="#808bc4"/>
+    <path d="M 40 60 L 66 34 M 50 34 H 68 V 52" stroke="#808bc4" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="65" y="38" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="32" fill="#FFFFFF" letter-spacing="-0.5">URLZ</text>
+</svg>`;
+
+// Full Light Theme Logo (Navy text for light backgrounds)
+export const URLZ_LOGO_LIGHT_SVG = `<svg viewBox="0 0 240 60" width="180" height="45" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(0, 5) scale(0.5)">
+    <path d="M 22 28 V 70 C 22 76 28 82 34 82 H 76 V 68 H 36 V 28 H 22 Z" fill="#808bc4"/>
+    <path d="M 40 60 L 66 34 M 50 34 H 68 V 52" stroke="#808bc4" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="65" y="38" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="32" fill="#13132B" letter-spacing="-0.5">URLZ</text>
+</svg>`;
+
+export const LOGO_DATA_URI = `data:image/svg+xml;base64,${btoa(URLZ_LOGO_DARK_SVG)}`;

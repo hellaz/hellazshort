@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest, setAuthToken } from '../api';
 import { useToast } from '../components/Toast';
+import { BrandLogo } from '../components/BrandLogo';
 import {
   Link as LinkIcon,
   Lock,
@@ -178,10 +179,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         onClick={onNavigateHome}
         className="flex items-center gap-2.5 mb-8 focus:outline-hidden cursor-pointer"
       >
-        <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
-          <LinkIcon className="w-5 h-5" />
-        </div>
-        <span className="text-2xl font-black tracking-tight text-white">URLZ</span>
+        <BrandLogo variant="dark" size="lg" />
       </button>
 
       <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95">
