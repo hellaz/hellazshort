@@ -440,7 +440,7 @@ app.get('*', async (c) => {
     }
 
     // Default: a built-in branded welcome page.
-    return c.html(renderBrandedRootPage(domainObj.domain_name));
+    return c.html(renderBrandedRootPage(domainObj.domain_name, c.get('nonce')));
   }
 
   // Handle redirect (pass execution context for proper async tracking)
@@ -502,18 +502,22 @@ async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext)
 
 // #12: built-in branded welcome page served at a domain root when no custom
 // page or redirect is configured. domainName is escaped (it originates from the DB).
-function renderBrandedRootPage(domainName: string): string {
+function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
   const safeDomain = escapeHtml(domainName);
+  const nonceAttr = nonce ? ` nonce="${nonce}"` : '';
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>URLZ - Shorten, Brand & Monetize Links (${safeDomain})</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"${nonceAttr}></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-color: #020617; color: #f8fafc; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-color: #020617; color: #f8fafc; min-height: 100vh; }
+    a { text-decoration: none; color: inherit; }
+    input, button { font-family: inherit; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
@@ -767,7 +771,7 @@ function renderBrandedRootPage(domainName: string): string {
     </div>
   </footer>
 
-  <script>
+  <script${nonceAttr}>
     const toggleAdv = document.getElementById('toggleAdv');
     const advBox = document.getElementById('advBox');
     toggleAdv.addEventListener('click', () => advBox.classList.toggle('hidden'));

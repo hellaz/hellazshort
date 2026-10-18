@@ -47,7 +47,7 @@ export const securityHeaders = createMiddleware<{ Bindings: Env; Variables: Vari
         const frameAncestors = allowIframe ? " frame-ancestors *;" : "";
         c.header(
             'Content-Security-Policy',
-            `default-src 'self'; script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://cdn.jsdelivr.net;${frameAncestors}`
+            `default-src 'self'; script-src 'self' 'unsafe-eval' 'nonce-${nonce}' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://cdn.jsdelivr.net;${frameAncestors}`
         );
     }
 });
