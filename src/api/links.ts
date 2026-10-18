@@ -657,12 +657,15 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
     }
   }
 
-  // Prepare metadata with route (category_id now goes in dedicated column)
+  // Prepare metadata with route & deep_link
   let metadata: string | undefined = undefined;
-  if (validated.metadata || effectiveRoute) {
+  if (validated.metadata || effectiveRoute || validated.deep_link) {
     const metadataObj = validated.metadata ? { ...validated.metadata } : {};
     if (effectiveRoute) {
       metadataObj.route = effectiveRoute;
+    }
+    if (validated.deep_link) {
+      metadataObj.deep_link = validated.deep_link;
     }
     metadata = JSON.stringify(metadataObj);
   }
@@ -847,6 +850,11 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
   if (validated.metadata !== undefined) {
     const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
     updates.metadata = JSON.stringify({ ...currentMetadata, ...validated.metadata });
+  }
+
+  if (validated.deep_link !== undefined) {
+    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
+    updates.metadata = JSON.stringify({ ...currentMetadata, deep_link: validated.deep_link });
   }
 
   // Validate pixel ids against the link's own domain before writing anything.

@@ -226,6 +226,12 @@ export interface CachedLink {
     android?: string;
     ios?: string;
   };
+  deep_link?: {
+    enabled: boolean;
+    ios_url?: string;
+    android_url?: string;
+    desktop_url?: string;
+  };
   og_meta?: {
     og_title?: string;
     og_description?: string;

@@ -15,7 +15,7 @@ import { trackClick, parseUserAgent, extractUtmParams, hashIpAddress, formatDate
 import { isBot } from '../utils/bots';
 import { renderOgPreviewPage } from '../views/ogPreview';
 import { renderPixelInterstitial, pixelInterstitialCsp, isHttpUrl, generateNonce } from '../views/pixelInterstitial';
-import { renderPasswordPromptPage, renderSplashPage, renderCloakedPage, renderExpiredPage } from '../views/interstitial';
+import { renderPasswordPromptPage, renderSplashPage, renderCloakedPage, renderExpiredPage, renderDeepLinkPage } from '../views/interstitial';
 
 /**
  * Merges query parameters from the request URL into the destination URL.
@@ -212,7 +212,7 @@ export async function handleRedirect(
 
   // Extract query parameters from request and merge with destination URL
   const requestUrl = new URL(request.url);
-  const finalDestinationUrl = mergeQueryParams(resolvedUrl, requestUrl);
+  let finalDestinationUrl = mergeQueryParams(resolvedUrl, requestUrl);
   // DEBUG: console.log('[REDIRECT] Final destination URL:', finalDestinationUrl);
 
   // Password protection check
@@ -228,6 +228,39 @@ export async function handleRedirect(
           'Vary': 'Cookie, User-Agent',
         },
       });
+    }
+  }
+
+  // Mobile Deep Linking & App Schemes
+  if (cached.deep_link?.enabled && !isBot(ogUserAgent)) {
+    const ua = ogUserAgent.toLowerCase();
+    const isIos = /iphone|ipad|ipod/.test(ua);
+    const isAndroid = /android/.test(ua);
+
+    if (isIos && cached.deep_link.ios_url) {
+      return new Response(renderDeepLinkPage(cached.deep_link.ios_url, finalDestinationUrl, 'iOS App'), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'private, no-store, max-age=0',
+          'Vary': 'User-Agent',
+        },
+      });
+    }
+
+    if (isAndroid && cached.deep_link.android_url) {
+      return new Response(renderDeepLinkPage(cached.deep_link.android_url, finalDestinationUrl, 'Android App'), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'private, no-store, max-age=0',
+          'Vary': 'User-Agent',
+        },
+      });
+    }
+
+    if (!isIos && !isAndroid && cached.deep_link.desktop_url) {
+      finalDestinationUrl = cached.deep_link.desktop_url;
     }
   }
 

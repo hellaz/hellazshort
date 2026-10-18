@@ -209,3 +209,52 @@ export function renderExpiredPage(type: 'expired' | 'limit'): string {
 </body>
 </html>`;
 }
+
+export function renderDeepLinkPage(
+  deepLinkUrl: string,
+  fallbackUrl: string,
+  platformName: string = 'App'
+): string {
+  const safeDeep = escapeHtml(deepLinkUrl);
+  const safeFallback = escapeHtml(fallbackUrl);
+  const safePlatform = escapeHtml(platformName);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opening ${safePlatform}... - URLZ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 2.5rem; max-width: 440px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    .icon { font-size: 3rem; margin-bottom: 1.25rem; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+    h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { font-size: 0.875rem; color: #94a3b8; line-height: 1.6; margin-bottom: 1.75rem; }
+    .btn { display: inline-block; width: 100%; padding: 0.85rem; border-radius: 14px; background: #4f46e5; color: #fff; font-weight: 700; font-size: 0.9rem; text-decoration: none; transition: background 0.2s; margin-bottom: 0.75rem; }
+    .btn:hover { background: #4338ca; }
+    .fallback-link { font-size: 0.8rem; color: #818cf8; text-decoration: none; }
+    .fallback-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🚀</div>
+    <h1>Opening in ${safePlatform}...</h1>
+    <p>Attempting to open link directly in native application. If the app is not installed, you will be redirected automatically.</p>
+    <a href="${safeDeep}" class="btn">Open ${safePlatform} Now &rarr;</a>
+    <div>
+      <a href="${safeFallback}" class="fallback-link">Continue to Web Version</a>
+    </div>
+  </div>
+  <script>
+    window.location.href = "${safeDeep}";
+    setTimeout(function() {
+      window.location.href = "${safeFallback}";
+    }, 2500);
+  </script>
+</body>
+</html>`;
+}

@@ -123,7 +123,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [splashTitle, setSplashTitle] = useState('Sponsored Destination');
   const [splashMessage, setSplashMessage] = useState('You will be redirected to your destination shortly.');
   const [splashBannerUrl, setSplashBannerUrl] = useState('');
-  const [splashButtonText, setSplashButtonText] = useState('Proceed to Destination');
+  const [deepLinkEnabled, setDeepLinkEnabled] = useState(false);
+  const [deepIosUrl, setDeepIosUrl] = useState('');
+  const [deepAndroidUrl, setDeepAndroidUrl] = useState('');
+  const [deepDesktopUrl, setDeepDesktopUrl] = useState('');
 
   const [selectedPixelIds, setSelectedPixelIds] = useState<string[]>([]);
 
@@ -213,6 +216,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setSplashMessage('You will be redirected to your destination shortly.');
     setSplashBannerUrl('');
     setSplashButtonText('Proceed to Destination');
+    setDeepLinkEnabled(false);
+    setDeepIosUrl('');
+    setDeepAndroidUrl('');
+    setDeepDesktopUrl('');
     setSelectedPixelIds([]);
     setOgTitle('');
     setOgDescription('');
@@ -249,6 +256,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setSplashMessage(meta.splash?.message || '');
     setSplashBannerUrl(meta.splash?.banner_url || '');
     setSplashButtonText(meta.splash?.button_text || 'Proceed to Destination');
+
+    if (meta.deep_link) {
+      setDeepLinkEnabled(Boolean(meta.deep_link.enabled));
+      setDeepIosUrl(meta.deep_link.ios_url || '');
+      setDeepAndroidUrl(meta.deep_link.android_url || '');
+      setDeepDesktopUrl(meta.deep_link.desktop_url || '');
+    } else {
+      setDeepLinkEnabled(false);
+      setDeepIosUrl('');
+      setDeepAndroidUrl('');
+      setDeepDesktopUrl('');
+    }
 
     // UTM (extract if present in destination)
     try {
@@ -400,6 +419,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       };
     } else {
       delete metadataObj.language_redirects;
+    }
+
+    if (deepLinkEnabled) {
+      metadataObj.deep_link = {
+        enabled: true,
+        ios_url: deepIosUrl.trim() || undefined,
+        android_url: deepAndroidUrl.trim() || undefined,
+        desktop_url: deepDesktopUrl.trim() || undefined,
+      };
+    } else {
+      delete metadataObj.deep_link;
     }
 
     // Dynamic redirects
@@ -1399,6 +1429,69 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                         />
                       </div>
+                    </div>
+
+                    {/* Mobile Deep Linking & Custom App Schemes */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                          📱 Mobile Deep Linking &amp; Custom App Schemes
+                        </span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={deepLinkEnabled}
+                            onChange={(e) => setDeepLinkEnabled(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:peer-checked:after:border-slate-800 peer-checked:bg-indigo-600"></div>
+                        </label>
+                      </div>
+                      {deepLinkEnabled && (
+                        <div className="space-y-2 bg-indigo-50/50 dark:bg-indigo-950/30 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Attempt to open native mobile app schemes (e.g. instagram://, spotify://) with automatic web fallback if app is uninstalled.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-0.5">
+                                iOS App Scheme (e.g. instagram://user?username=urlz)
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="instagram://user?username=urlz"
+                                value={deepIosUrl}
+                                onChange={(e) => setDeepIosUrl(e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-0.5">
+                                Android App Scheme / Intent URL
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="intent://instagram.com/#Intent;package=com.instagram.android;scheme=https;end"
+                                value={deepAndroidUrl}
+                                onChange={(e) => setDeepAndroidUrl(e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-0.5">
+                              Desktop Fallback Override (optional)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="https://instagram.com/urlz"
+                              value={deepDesktopUrl}
+                              onChange={(e) => setDeepDesktopUrl(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

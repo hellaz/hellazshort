@@ -74,6 +74,13 @@ const redirectCodeSchema = z.union([z.literal(301), z.literal(302), z.literal(30
  * default here would overwrite the stored value on every update that omits the field.
  * Put create-time defaults on createLinkSchema instead.
  */
+export const deepLinkSchema = z.object({
+  enabled: z.boolean().default(false),
+  ios_url: z.string().optional(),
+  android_url: z.string().optional(),
+  desktop_url: z.string().optional(),
+});
+
 const baseLinkSchema = z.object({
   destination_url: z.string().url(),
   title: z.string().max(255).optional(),
@@ -88,6 +95,7 @@ const baseLinkSchema = z.object({
   device_redirects: z.array(deviceRedirectSchema).optional(),
   city_redirects: z.array(cityRedirectSchema).max(20).optional(),
   os_redirects: z.array(osRedirectSchema).max(20).optional(),
+  deep_link: deepLinkSchema.optional(),
   og_meta: ogMetaSchema.optional(),
   pixel_ids: z.array(z.string().min(1)).max(5).optional(),
 });

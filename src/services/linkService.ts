@@ -42,6 +42,7 @@ export function composeCachedLink(link: Link, domain: Domain, parts: CachedLinkP
     device_redirects: parts.device,
     city_redirects: parts.city,
     os_redirects: parts.os,
+    deep_link: meta?.deep_link?.enabled ? meta.deep_link : undefined,
     og_meta: parts.og_meta,
     pixels: parts.pixels,
     route: meta?.route,
