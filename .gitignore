@@ -50,5 +50,9 @@ documentation/
 docs/
 Claude.md
 
+# SQLite
+*.sqlite
+*.sqlite-journal
+
 # Misc
 *.tsbuildinfo
