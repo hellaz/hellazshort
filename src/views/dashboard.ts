@@ -7,7 +7,7 @@
 
 import { html } from '../utils/html';
 import { ASSET_VERSION } from '../utils/constants';
-import { LOGO_DATA_URI } from '../utils/logo';
+import { LOGO_DATA_URI, FALLBACK_SVG_LOGO } from '../utils/logo';
 import { PIXEL_RULES_CLIENT } from '../utils/pixelIds';
 
 export function dashboardHtml(csrfToken: string, nonce: string): string {
@@ -33,7 +33,7 @@ export function dashboardHtml(csrfToken: string, nonce: string): string {
 <body>
   <div id="app">
     <nav class="navbar">
-      <div class="nav-brand"><a href="#dashboard" style="text-decoration: none; color: inherit; display: flex; align-items: center;"><img src="${LOGO_DATA_URI}" alt="URLZ" style="height: 42px; width: auto;" /></a></div>
+      <div class="nav-brand"><a href="#dashboard" style="text-decoration: none; color: inherit; display: flex; align-items: center;"><img src="${LOGO_DATA_URI}" alt="URLZ" style="height: 42px; width: auto;" onerror="this.onerror=null;this.src='${FALLBACK_SVG_LOGO}';" /></a></div>
       <div class="nav-items">
         <select id="domain-selector" class="domain-selector">
           <option value="">Select Domain</option>

@@ -9,6 +9,9 @@ directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
+[build]
+command = "npm run build"
+
 
 # D1 Database
 # Note: database_id does NOT support environment variable substitution

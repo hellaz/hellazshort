@@ -6,7 +6,7 @@
  */
 
 import { html, raw } from '../utils/html';
-import { LOGO_DATA_URI } from '../utils/logo';
+import { LOGO_DATA_URI, FALLBACK_SVG_LOGO } from '../utils/logo';
 
 export const loginHtml = (csrfToken: string, nonce: string, showSetup: boolean = false) => html`<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -287,7 +287,7 @@ export const loginHtml = (csrfToken: string, nonce: string, showSetup: boolean =
   <div class="auth-card">
     <div class="logo-container">
       <a href="/" style="display:inline-flex; align-items:center; gap:0.5rem; text-decoration:none;">
-        <img src="${raw(LOGO_DATA_URI)}" alt="URLZ" style="height: 44px; width: auto;" />
+        <img src="${raw(LOGO_DATA_URI)}" alt="URLZ" style="height: 44px; width: auto;" onerror="this.onerror=null;this.src='${raw(FALLBACK_SVG_LOGO)}';" />
       </a>
     </div>
 
