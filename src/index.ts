@@ -152,114 +152,69 @@ app.get('/dashboard/__validate__', (c) => {
   });
 });
 
-// Dashboard - Login page (moved from /login to /dashboard/login)
-app.get('/dashboard/login', async (c) => {
-  const { loginHtml } = await import('./views/auth');
-  const csrfToken = c.get('csrfToken') || '';
-  const nonce = c.get('nonce') || '';
-  let showSetup = false;
-  try {
-    const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
-    showSetup = (existingUsers?.count || 0) === 0;
-  } catch {}
-  return c.html(loginHtml(csrfToken, nonce, showSetup));
+// Embedded SPA Index HTML Fallback
+const SPA_INDEX_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URLZ - Link Shortener & Management Platform</title>
+  <meta name="description" content="URLz Cloudflare-based link shortener and management platform">
+  <meta property="og:title" content="URLZ - Link Shortener & Management Platform">
+  <meta property="og:description" content="URLz Cloudflare-based link shortener and management platform">
+  <link rel="icon" type="image/png" href="/BackgroundSQR.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-CggAOiN4.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Dl_9pbrx.css">
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 antialiased min-h-screen">
+  <div id="root"></div>
+</body>
+</html>`;
+
+async function serveSpa(c: any) {
+  if (c.env.ASSETS) {
+    try {
+      const res = await c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url), c.req.raw));
+      if (res.status === 200) {
+        return res;
+      }
+    } catch {}
+  }
+  return c.html(SPA_INDEX_HTML);
+}
+
+// Serve static assets from ASSETS binding if available
+app.get('/assets/*', async (c) => {
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+  return c.text('Asset not found', 404);
 });
 
-// Dashboard - Setup page (moved from /setup to /dashboard/setup)
-app.get('/dashboard/setup', async (c) => {
-  if (!c.env.DB) {
-    return c.html(`
-      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:50px auto;padding:28px;background:#fef2f2;border:1px solid #f87171;border-radius:12px;color:#991b1b;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
-        <h2 style="margin-top:0;">D1 Database Binding Missing</h2>
-        <p>The <code>DB</code> binding was not found on your Cloudflare Worker.</p>
-        <p>In Cloudflare Dashboard &gt; <strong>Workers &amp; Pages</strong> &gt; <strong>hellazshort</strong> &gt; <strong>Settings</strong> &gt; <strong>Bindings</strong>, add a D1 Database binding with variable name <strong>DB</strong> pointing to <strong>openshortlink-db</strong>.</p>
-      </div>
-    `, 500);
+app.get('/*.png', async (c) => {
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(c.req.raw);
   }
-
-  // Check if users already exist
-  let userCount = 0;
-  try {
-    const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
-    userCount = existingUsers?.count || 0;
-  } catch (err: any) {
-    return c.html(`
-      <div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:50px auto;padding:28px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);color:#334155;">
-        <h2 style="color:#e11d48;margin-top:0;">Database Connection Error</h2>
-        <p>Could not query D1 database: <strong>${err.message}</strong></p>
-        <p>This usually happens when the <code>database_id</code> in <code>wrangler.toml</code> does not match the actual ID of your D1 database.</p>
-        <h3>How to fix:</h3>
-        <ol style="line-height:1.8;padding-left:20px;">
-          <li>In Cloudflare Dashboard, go to <strong>Storage &amp; Databases</strong> &gt; <strong>D1 SQL Database</strong>.</li>
-          <li>Click on <strong>openshortlink-db</strong> and copy the <strong>Database ID</strong>.</li>
-          <li>In <strong>Workers &amp; Pages</strong> &gt; <strong>hellazshort</strong> &gt; <strong>Settings</strong> &gt; <strong>Bindings</strong>, ensure D1 binding <strong>DB</strong> is connected to <strong>openshortlink-db</strong> (or update <code>database_id</code> in <code>wrangler.toml</code>).</li>
-        </ol>
-      </div>
-    `, 500);
-  }
-
-  if (userCount > 0) {
-    // Users exist, redirect to login
-    return c.redirect('/dashboard/login');
-  }
-
-  // Check if SETUP_TOKEN is configured
-  if (!c.env.SETUP_TOKEN) {
-    const { setupErrorHtml } = await import('./views/auth');
-    return c.html(setupErrorHtml);
-  }
-
-  const { setupHtml } = await import('./views/auth');
-  const csrfToken = c.get('csrfToken') || '';
-  const nonce = c.get('nonce') || '';
-  return c.html(setupHtml(csrfToken, nonce));
+  return c.text('Asset not found', 404);
 });
 
-// Dashboard - Static assets (moved from /static to /dashboard/static)
-app.route('/dashboard/static', staticRouter);
-
-// Dashboard - Main dashboard page
-app.get('/dashboard', async (c) => {
-  // Dynamic import - only loads dashboard code when accessed
-  const { dashboardHtml } = await import('./views/dashboard');
-  
-  // Check for auth cookie, auth header, or query token
-  const cookieHeader = c.req.header('Cookie');
-  let token = cookieHeader?.match(/session_token=([^;]+)/)?.[1];
-  const url = new URL(c.req.url);
-  const queryToken = url.searchParams.get('token');
-  if (!token && queryToken) {
-    token = queryToken;
+app.get('/*.ico', async (c) => {
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(c.req.raw);
   }
-  if (!token) {
-    const authHeader = c.req.header('Authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    }
-  }
-
-  if (!token) {
-    const existingUsers = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
-    if ((existingUsers?.count || 0) === 0) {
-      c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-      return c.redirect('/dashboard/setup');
-    }
-    c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    return c.redirect('/dashboard/login');
-  }
-
-  // Prevent caching of dashboard
-  c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-  c.header('Pragma', 'no-cache');
-  c.header('Expires', '0');
-  if (queryToken) {
-    const isProd = c.env.ENVIRONMENT === 'production';
-    c.header('Set-Cookie', `session_token=${token}; HttpOnly; ${isProd ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=3600`);
-  }
-  const csrfToken = c.get('csrfToken') || '';
-  const nonce = c.get('nonce') || '';
-  return c.html(dashboardHtml(csrfToken, nonce));
+  return c.text('Asset not found', 404);
 });
+
+// Serve React Single Page Application for Dashboard & Auth views
+app.get('/dashboard/login', serveSpa);
+app.get('/dashboard/setup', serveSpa);
+app.get('/login', serveSpa);
+app.get('/setup', serveSpa);
+app.get('/dashboard', serveSpa);
+app.get('/dashboard/*', serveSpa);
 
 // Dashboard - Catch-all for unmatched dashboard routes (MUST come after more specific /dashboard/* routes)
 // Note: Moved to after API routes to allow /dashboard/api/* to be matched first
@@ -413,7 +368,7 @@ app.get('*', async (c) => {
 
   if (!result) {
     if (path === '/' || path === '') {
-      return c.redirect('/dashboard');
+      return serveSpa(c);
     }
     return c.text('Not found', 404);
   }
@@ -442,8 +397,8 @@ app.get('*', async (c) => {
       return c.html(rootPage.html);
     }
 
-    // Default: a built-in branded welcome page.
-    return c.html(renderBrandedRootPage(domainObj.domain_name, c.get('nonce')));
+    // Default: serve React Single Page Application (Public Landing View / Dashboard)
+    return serveSpa(c);
   }
 
   // Handle redirect (pass execution context for proper async tracking)
