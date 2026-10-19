@@ -3,6 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Static Assets (React SPA)
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
 
 # D1 Database
 # Note: database_id does NOT support environment variable substitution

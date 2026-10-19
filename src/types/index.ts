@@ -266,6 +266,7 @@ export interface Env {
   DB: D1Database;
   CACHE: KVNamespace;
   ANALYTICS: AnalyticsEngineDataset;
+  ASSETS?: Fetcher;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   ACCESS_AUDIENCE_TAG?: string;
