@@ -226,6 +226,7 @@ export async function listLinks(
     offset?: number;
     search?: string;
     categoryId?: string;
+    createdBy?: string;
   } = {}
 ): Promise<Link[]> {
   // Early return if domainIds is explicitly an empty array (user has no domain access)
@@ -265,6 +266,10 @@ export async function listLinks(
     query += ' AND l.category_id = ?';
     params.push(options.categoryId);
   }
+  if (options.createdBy) {
+    query += ' AND l.created_by = ?';
+    params.push(options.createdBy);
+  }
 
   query += ' ORDER BY created_at DESC';
   if (options.limit) {
@@ -289,6 +294,7 @@ export async function countLinks(
     search?: string;
     tagId?: string;
     categoryId?: string;
+    createdBy?: string;
   } = {}
 ): Promise<number> {
   // Early return if domainIds is explicitly an empty array (user has no domain access)
@@ -325,6 +331,10 @@ export async function countLinks(
   if (options.categoryId) {
     query += ' AND l.category_id = ?';
     params.push(options.categoryId);
+  }
+  if (options.createdBy) {
+    query += ' AND l.created_by = ?';
+    params.push(options.createdBy);
   }
 
   const result = await env.DB.prepare(query).bind(...params).first<{ count: number }>();

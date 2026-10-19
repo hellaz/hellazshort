@@ -466,7 +466,63 @@ authRouter.get('/me', optionalAuth, async (c) => {
       role: fullUser.role,
       mfa_enabled: fullUser.mfa_enabled === 1,
       must_change_password: fullUser.must_change_password === 1, // #11
+      is_social_user: Boolean(
+        fullUser.username?.match(/^(google|facebook|twitter|github)_/) ||
+        fullUser.email?.endsWith('@urlz.eu.org') ||
+        fullUser.cloudflare_access_id
+      ),
     }
+  });
+});
+
+// Update current user profile (username / email)
+authRouter.put('/me', authMiddleware, async (c) => {
+  const user = c.get('user') as { id: string };
+  const body = await c.req.json().catch(() => ({}));
+  const username = typeof body.username === 'string' ? body.username.trim() : undefined;
+  const email = typeof body.email === 'string' ? body.email.trim() : undefined;
+
+  const updates: Record<string, any> = {};
+  if (username) {
+    if (username.length < 3 || username.length > 50) {
+      throw new HTTPException(400, { message: 'Username must be between 3 and 50 characters' });
+    }
+    const existing = await getUserByUsername(c.env, username);
+    if (existing && existing.id !== user.id) {
+      throw new HTTPException(409, { message: 'Username is already taken' });
+    }
+    updates.username = username;
+  }
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new HTTPException(400, { message: 'Invalid email address format' });
+    }
+    const existing = await getUserByEmail(c.env, email);
+    if (existing && existing.id !== user.id) {
+      throw new HTTPException(409, { message: 'Email is already in use by another account' });
+    }
+    updates.email = email;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await updateUser(c.env, user.id, updates as any);
+  }
+
+  const updated = await getUserById(c.env, user.id);
+  return c.json({
+    success: true,
+    data: {
+      id: updated?.id,
+      username: updated?.username,
+      email: updated?.email,
+      role: updated?.role,
+      is_social_user: Boolean(
+        updated?.username?.match(/^(google|facebook|twitter|github)_/) ||
+        updated?.email?.endsWith('@urlz.eu.org') ||
+        updated?.cloudflare_access_id
+      ),
+    },
   });
 });
 
@@ -863,14 +919,26 @@ authRouter.post('/change-password', authMiddleware, validateJson(changePasswordS
 
   // Get user with password hash
   const fullUser = await getUserById(c.env, user.id);
-  if (!fullUser || !fullUser.password_hash) {
-    throw new HTTPException(400, { message: 'User does not have a password set' });
+  if (!fullUser) {
+    throw new HTTPException(404, { message: 'User not found' });
   }
 
-  // Verify current password
-  const isValid = await verifyPassword(validated.current_password, fullUser.password_hash);
-  if (!isValid) {
-    throw new HTTPException(401, { message: 'Current password is incorrect' });
+  const isSocialAccount = Boolean(
+    fullUser.username?.match(/^(google|facebook|twitter|github)_/) ||
+    fullUser.email?.endsWith('@urlz.eu.org') ||
+    fullUser.cloudflare_access_id ||
+    !fullUser.password_hash
+  );
+
+  // Verify current password only for non-social accounts that have a set password
+  if (!isSocialAccount) {
+    if (!validated.current_password) {
+      throw new HTTPException(400, { message: 'Current password is required' });
+    }
+    const isValid = await verifyPassword(validated.current_password, fullUser.password_hash || '');
+    if (!isValid) {
+      throw new HTTPException(401, { message: 'Current password is incorrect' });
+    }
   }
 
   // Hash new password

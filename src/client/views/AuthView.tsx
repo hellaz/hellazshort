@@ -420,8 +420,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
         {/* SOCIAL LOGINS FOR BOTH LOGIN & REGISTER */}
         {(mode === 'login' || mode === 'register') && (
           <div className="mt-5 pt-4 border-t border-slate-800">
-            <p className="text-[11px] font-semibold text-slate-400 text-center mb-3">
-              Or Instant Social Sign-In:
+            <p className="text-[11px] font-semibold text-slate-400 text-center mb-0.5">
+              {mode === 'login' ? 'Or Sign In with Social Account:' : 'Or Auto-Register with Social Account:'}
+            </p>
+            <p className="text-[10px] text-slate-500 text-center mb-3">
+              One-click federated sign-in: logs into existing accounts or automatically creates a new account.
             </p>
             <div className="grid grid-cols-3 gap-2">
               <button

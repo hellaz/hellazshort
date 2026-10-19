@@ -106,7 +106,7 @@ export const mfaVerifySchema = z.object({
 // ============================================================================
 
 export const changePasswordSchema = z.object({
-  current_password: z.string().min(1),
+  current_password: z.string().optional(),
   new_password: strongPasswordSchema,
 });
 

@@ -22,6 +22,8 @@ import {
   X,
   Eye,
   EyeOff,
+  Edit3,
+  Sparkles,
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -43,6 +45,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // Profile Edit State
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileUsername, setProfileUsername] = useState(user?.username || '');
+  const [profileEmail, setProfileEmail] = useState(user?.email || '');
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setProfileUsername(user.username || '');
+      setProfileEmail(user.email || '');
+    }
+  }, [user]);
+
+  const isSocialUser = Boolean(
+    (user as any)?.is_social_user ||
+    user?.username?.match(/^(google|facebook|twitter|github)_/) ||
+    user?.email?.endsWith('@urlz.eu.org')
+  );
 
   // 2FA / MFA State
   const [mfaSecret, setMfaSecret] = useState<string | null>(null);
@@ -229,7 +250,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  // Change Password
+  // Change or Set Password
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -246,21 +267,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const res = await apiRequest('auth/change-password', {
         method: 'POST',
         body: JSON.stringify({
-          current_password: currentPassword,
+          current_password: isSocialUser ? undefined : currentPassword,
           new_password: newPassword,
         }),
       });
 
       if (res.success) {
-        showToast('Password changed successfully!', 'success');
+        showToast(isSocialUser ? 'Account password set successfully!' : 'Password changed successfully!', 'success');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
+        if (onUserUpdated) onUserUpdated();
       } else {
-        showToast(res.error || 'Failed to change password', 'error');
+        showToast(res.error || 'Failed to update password', 'error');
       }
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  // Update Profile (Username & Email)
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    try {
+      const res = await apiRequest('auth/me', {
+        method: 'PUT',
+        body: JSON.stringify({
+          username: profileUsername.trim() || undefined,
+          email: profileEmail.trim() || undefined,
+        }),
+      });
+      if (res.success) {
+        showToast('Profile updated successfully!', 'success');
+        setIsEditingProfile(false);
+        if (onUserUpdated) onUserUpdated();
+      } else {
+        showToast(res.error || 'Failed to update profile', 'error');
+      }
+    } catch {
+      showToast('Network error updating profile', 'error');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -438,56 +486,143 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {activeTab === 'account' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Profile Details</h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-500 block mb-0.5">Username</label>
-                <div className="font-bold text-slate-900 dark:text-white text-sm bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                  {user?.username}
-                </div>
-              </div>
-              <div>
-                <label className="text-slate-500 block mb-0.5">Email Address</label>
-                <div className="text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                  {user?.email || 'No email attached'}
-                </div>
-              </div>
-              <div>
-                <label className="text-slate-500 block mb-0.5">Role Permission</label>
-                <span className="inline-block px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
-                  {user?.role}
-                </span>
-              </div>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-indigo-500" />
+                <span>Profile Details</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(!isEditingProfile)}
+                className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditingProfile ? 'Cancel' : 'Edit Profile'}</span>
+              </button>
             </div>
+
+            {isSocialUser && (
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-indigo-900 dark:text-indigo-200 leading-relaxed">
+                  <span className="font-bold block">Social Sign-In Account</span>
+                  Logged in with instant federated auth. You can customize your display username and real contact email below.
+                </div>
+              </div>
+            )}
+
+            {isEditingProfile ? (
+              <form onSubmit={handleUpdateProfile} className="space-y-3 text-xs">
+                <div>
+                  <label className="text-slate-600 dark:text-slate-400 block mb-1 font-semibold">
+                    Display Username
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={profileUsername}
+                    onChange={(e) => setProfileUsername(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-600 dark:text-slate-400 block mb-1 font-semibold">
+                    Primary Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={profileEmail}
+                    onChange={(e) => setProfileEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Used for notifications, account recovery, and owner identification.</p>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {profileSaving ? 'Saving...' : 'Save Profile'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(false)}
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-slate-500 block mb-0.5">Username</label>
+                  <div className="font-bold text-slate-900 dark:text-white text-sm bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <span>{user?.username}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-slate-500 block mb-0.5">Email Address</label>
+                  <div className="text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                    {user?.email || 'No email attached'}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-slate-500 block mb-0.5">Role Permission</label>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                      {user?.role}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {user?.role === 'admin' || user?.role === 'owner' ? 'Platform Administrator' : 'Standard Shortener Account'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Lock className="w-4 h-4 text-indigo-500" />
-              <span>Change Password</span>
+              <span>{isSocialUser ? 'Set Direct Account Password' : 'Change Password'}</span>
             </h3>
 
-            <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
-                />
+            {isSocialUser && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-900 dark:text-amber-200">
+                <span className="font-semibold block mb-0.5">No current password required</span>
+                <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                  Because you signed in with Social Sign-In, you do not have a prior password. Create a password below to enable signing in directly with your email and password.
+                </p>
               </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
+              {!isSocialUser && (
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  New Password
+                  {isSocialUser ? 'Choose New Password' : 'New Password'}
                 </label>
                 <input
                   type="password"
                   required
+                  placeholder="At least 8 characters"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -496,11 +631,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Confirm New Password
+                  Confirm {isSocialUser ? 'Password' : 'New Password'}
                 </label>
                 <input
                   type="password"
                   required
+                  placeholder="Re-enter chosen password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -512,7 +648,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 disabled={passwordLoading}
                 className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50 mt-2"
               >
-                {passwordLoading ? 'Updating Password...' : 'Update Password'}
+                {passwordLoading
+                  ? 'Saving Password...'
+                  : isSocialUser
+                  ? 'Set Direct Account Password'
+                  : 'Update Password'}
               </button>
             </form>
           </div>

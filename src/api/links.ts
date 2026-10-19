@@ -273,6 +273,10 @@ linksRouter.get('/', authOrApiKeyMiddleware, async (c) => {
       links = result.links;
       totalCount = result.totalCount;
     } else {
+      // Non-admin users only see links they personally created
+      const isPrivileged = user?.role === 'admin' || user?.role === 'owner';
+      const createdByFilter = (!isPrivileged && user?.id) ? user.id : undefined;
+
       // Optimized path: use database pagination with domain filtering
       links = await listLinks(c.env, {
         domainIds: accessibleDomainIds, // Database-level filtering
@@ -280,6 +284,7 @@ linksRouter.get('/', authOrApiKeyMiddleware, async (c) => {
         status: status || undefined,
         search: search || undefined,
         categoryId: categoryId || undefined,
+        createdBy: createdByFilter,
         limit,
         offset,
       });
@@ -291,10 +296,10 @@ linksRouter.get('/', authOrApiKeyMiddleware, async (c) => {
         status: status || undefined,
         search: search || undefined,
         categoryId: categoryId || undefined,
+        createdBy: createdByFilter,
       });
     }
 
-    // Batch fetch tags and categories (optimized - no N+1 queries)
     // Batch fetch tags and categories (optimized - no N+1 queries)
     const linkIds = links.map(l => l?.id).filter((id): id is string => !!id);
 
@@ -765,6 +770,7 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
       category_id: validated.category_id, // Use dedicated column
       click_count: 0,
       unique_visitors: 0,
+      created_by: user?.id || null,
     });
   } catch (error) {
     if (error instanceof SlugConflictError) {

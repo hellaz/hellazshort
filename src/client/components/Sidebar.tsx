@@ -150,33 +150,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Link Monitor */}
-        <button
-          onClick={() => onNavigate('status-monitor')}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-            isCurrent('status-monitor')
-              ? 'bg-indigo-600 text-white'
-              : 'hover:bg-slate-800 hover:text-white text-slate-300'
-          }`}
-          title="Link Health Monitor"
-        >
-          <Activity className="w-5 h-5 shrink-0" />
-          {isOpen && <span>Link Monitor</span>}
-        </button>
+        {/* Link Monitor & Domains (Admin Only) */}
+        {(userRole === 'owner' || userRole === 'admin') && (
+          <>
+            <button
+              onClick={() => onNavigate('status-monitor')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                isCurrent('status-monitor')
+                  ? 'bg-indigo-600 text-white'
+                  : 'hover:bg-slate-800 hover:text-white text-slate-300'
+              }`}
+              title="Link Health Monitor"
+            >
+              <Activity className="w-5 h-5 shrink-0" />
+              {isOpen && <span>Link Monitor</span>}
+            </button>
 
-        {/* Domains */}
-        <button
-          onClick={() => onNavigate('domains')}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-            isCurrent('domains')
-              ? 'bg-indigo-600 text-white'
-              : 'hover:bg-slate-800 hover:text-white text-slate-300'
-          }`}
-          title="Custom Domains"
-        >
-          <Globe className="w-5 h-5 shrink-0" />
-          {isOpen && <span>Domains</span>}
-        </button>
+            <button
+              onClick={() => onNavigate('domains')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                isCurrent('domains')
+                  ? 'bg-indigo-600 text-white'
+                  : 'hover:bg-slate-800 hover:text-white text-slate-300'
+              }`}
+              title="Custom Domains"
+            >
+              <Globe className="w-5 h-5 shrink-0" />
+              {isOpen && <span>Domains</span>}
+            </button>
+          </>
+        )}
 
         {/* Pixels */}
         <button
