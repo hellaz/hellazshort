@@ -16,6 +16,8 @@ import {
   Globe2,
   BarChart3,
   X,
+  ShieldAlert,
+  Check,
 } from 'lucide-react';
 
 import { User } from '../types';
@@ -38,6 +40,45 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
   const [claimingCode, setClaimingCode] = useState(false);
   const [grantingDemoCredit, setGrantingDemoCredit] = useState(false);
 
+  // API Upgrade Request Modal
+  const [isApiRequestModalOpen, setIsApiRequestModalOpen] = useState(false);
+  const [requestTier, setRequestTier] = useState<'Pro Developer' | 'Enterprise Scale'>('Pro Developer');
+  const [requestContactEmail, setRequestContactEmail] = useState(user?.email || '');
+  const [requestReason, setRequestReason] = useState('');
+  const [requestSending, setRequestSending] = useState(false);
+
+  useEffect(() => {
+    if (user?.email) {
+      setRequestContactEmail(user.email);
+    }
+  }, [user]);
+
+  const handleSendApiRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRequestSending(true);
+    try {
+      const res = await apiRequest('monetization/api-request', {
+        method: 'POST',
+        body: JSON.stringify({
+          tier: requestTier,
+          email: requestContactEmail.trim() || undefined,
+          reason: requestReason.trim() || undefined,
+        }),
+      });
+      if (res.success) {
+        showToast(res.message || 'Request submitted successfully!', 'success');
+        setIsApiRequestModalOpen(false);
+        setRequestReason('');
+      } else {
+        showToast(res.error || 'Failed to submit request', 'error');
+      }
+    } catch {
+      showToast('Network error submitting request', 'error');
+    } finally {
+      setRequestSending(false);
+    }
+  };
+
   // Overview Data
   const [overview, setOverview] = useState<any>({
     total_clicks: 0,
@@ -51,7 +92,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
       is_unlimited: false,
     },
     referrals: { total_referred: 0, bonus_links_earned: 0, referral_url: '' },
-    api_usage: { month_key: '', request_count: 0, monthly_limit: 10000, tier_name: 'Pro Developer' },
+    api_usage: { month_key: '', request_count: 0, monthly_limit: 0, tier_name: 'Free Community Plan', is_api_enabled: false },
   });
 
   // Campaigns Data
@@ -534,91 +575,165 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Code2 className="w-4 h-4 text-indigo-500" />
-              <span>Programmatic REST API Usage &amp; Billing</span>
+              <span>Programmatic REST API Usage &amp; Access</span>
             </h3>
 
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-600 dark:text-slate-400">
-                  Monthly Request Usage ({overview.api_usage?.month_key})
-                </span>
-                <span className="font-mono text-indigo-600 dark:text-indigo-400">
-                  {overview.api_usage?.request_count} / {overview.api_usage?.monthly_limit?.toLocaleString()} calls
-                </span>
+            {!isAdmin ? (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                  <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>REST API Access Restricted on Free Accounts</span>
+                </div>
+                <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                  Programmatic API endpoints and API keys are only available to platform administrators unless approved via a paid developer upgrade. Free user accounts have <strong>0 API requests / month</strong> and manage links exclusively through the web dashboard.
+                </p>
+                <div className="pt-1 flex items-center gap-3">
+                  <span className="text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                    Monthly Quota: 0 / 0 calls (API Inactive)
+                  </span>
+                  <button
+                    onClick={() => {
+                      setRequestTier('Pro Developer');
+                      setIsApiRequestModalOpen(true);
+                    }}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>Request Developer Access</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
-              <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-linear-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      ((overview.api_usage?.request_count || 0) / (overview.api_usage?.monthly_limit || 10000)) * 100
-                    )}%`,
-                  }}
-                />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-slate-600 dark:text-slate-400">
+                    Administrator Unlimited Quota ({overview.api_usage?.month_key || 'Current'})
+                  </span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    {overview.api_usage?.request_count} / {overview.api_usage?.monthly_limit?.toLocaleString()} calls
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-linear-to-r from-emerald-500 to-indigo-500 rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        ((overview.api_usage?.request_count || 0) / (overview.api_usage?.monthly_limit || 100000)) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+            {/* Free Plan */}
+            <div
+              className={`bg-white dark:bg-slate-900 p-6 rounded-2xl border shadow-xs flex flex-col justify-between relative ${
+                !isAdmin
+                  ? 'border-emerald-500/80 ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 dark:border-slate-800'
+              }`}
+            >
+              {!isAdmin && (
+                <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  <span>Current Active Tier</span>
+                </div>
+              )}
               <div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Free Plan</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                  Free Community Plan
+                </span>
                 <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">$0 / mo</div>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Basic shortener access for personal use and testing.
+                  Basic shortener access for personal use and web dashboard management.
                 </p>
                 <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300 mt-4">
-                  <li className="flex items-center gap-2">✓ 1,000 API Requests/mo</li>
-                  <li className="flex items-center gap-2">✓ Standard Redirections</li>
-                  <li className="flex items-center gap-2">✓ Basic Analytics</li>
+                  <li className="flex items-center gap-2">✓ 10 Free Shortened Links</li>
+                  <li className="flex items-center gap-2">✓ +50 Bonus Links per Referral</li>
+                  <li className="flex items-center gap-2">✓ Click Analytics &amp; QR Codes</li>
+                  <li className="flex items-center gap-2 text-slate-400 dark:text-slate-500">
+                    ✕ 0 Programmatic API Requests (Web Only)
+                  </li>
                 </ul>
+              </div>
+              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <span className="w-full block py-2 text-center text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  {!isAdmin ? 'Current Active Tier' : 'Standard Free Tier'}
+                </span>
               </div>
             </div>
 
+            {/* Pro Developer Plan */}
             <div className="bg-slate-900 border-2 border-indigo-500 p-6 rounded-2xl shadow-xl text-white relative overflow-hidden flex flex-col justify-between">
               <div className="absolute top-3 right-3 bg-indigo-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-                Popular
+                Paid Upgrade
               </div>
               <div>
-                <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block">Pro Developer</span>
+                <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block">
+                  Pro Developer
+                </span>
                 <div className="text-2xl font-black text-white mt-2">$19 / mo</div>
                 <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  Power developers and growing applications.
+                  For developers building automated apps and production integrations.
                 </p>
                 <ul className="text-xs space-y-2 text-slate-300 mt-4">
-                  <li className="flex items-center gap-2">✓ 25,000 API Requests/mo</li>
+                  <li className="flex items-center gap-2">✓ 25,000 API Requests / mo</li>
+                  <li className="flex items-center gap-2">✓ Programmatic API Keys &amp; Whitelist</li>
                   <li className="flex items-center gap-2">✓ Custom Domains &amp; Pixels</li>
                   <li className="flex items-center gap-2">✓ Geo &amp; Device Targeting</li>
-                  <li className="flex items-center gap-2">✓ Retargeting &amp; Overlays</li>
+                  <li className="flex items-center gap-2">✓ Webhooks &amp; Status Monitor</li>
                 </ul>
               </div>
               <button
-                onClick={() => showToast('Upgraded to Pro Developer API tier!', 'success')}
-                className="w-full mt-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg cursor-pointer"
+                onClick={() => {
+                  setRequestTier('Pro Developer');
+                  setIsApiRequestModalOpen(true);
+                }}
+                className="w-full mt-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg cursor-pointer transition-colors"
               >
-                Current Active Tier
+                {isAdmin ? 'Manage Developer Access' : 'Request Paid Upgrade ($19/mo)'}
               </button>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+            {/* Enterprise Scale Plan */}
+            <div
+              className={`bg-white dark:bg-slate-900 p-6 rounded-2xl border shadow-xs flex flex-col justify-between relative ${
+                isAdmin ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-slate-200 dark:border-slate-800'
+              }`}
+            >
+              {isAdmin && (
+                <div className="absolute top-3 right-3 bg-purple-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  <span>Admin Access</span>
+                </div>
+              )}
               <div>
-                <span className="text-xs font-bold text-purple-500 uppercase tracking-wider block">Enterprise Scale</span>
+                <span className="text-xs font-bold text-purple-500 uppercase tracking-wider block">
+                  Enterprise Scale
+                </span>
                 <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">$99 / mo</div>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  High-volume marketing platforms and enterprise web suites.
+                  High-volume marketing platforms, custom routing, and enterprise fleets.
                 </p>
                 <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300 mt-4">
                   <li className="flex items-center gap-2">✓ Unlimited API Requests</li>
-                  <li className="flex items-center gap-2">✓ Priority SLA Edge Routing</li>
+                  <li className="flex items-center gap-2">✓ Priority Edge SLA Routing</li>
                   <li className="flex items-center gap-2">✓ Dedicated Support &amp; Webhooks</li>
+                  <li className="flex items-center gap-2">✓ Custom Contract &amp; Invoicing</li>
                 </ul>
               </div>
               <button
-                onClick={() => showToast('Contacting Enterprise sales team...', 'info')}
-                className="w-full mt-6 py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+                onClick={() => {
+                  setRequestTier('Enterprise Scale');
+                  setIsApiRequestModalOpen(true);
+                }}
+                className="w-full mt-6 py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
               >
-                Upgrade to Enterprise
+                {isAdmin ? 'Administrator Active' : 'Contact Admin to Upgrade'}
               </button>
             </div>
           </div>
@@ -826,6 +941,93 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl cursor-pointer shadow-md disabled:opacity-50"
                 >
                   {creatingCamp ? 'Launching...' : 'Launch Campaign'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* API UPGRADE REQUEST MODAL */}
+      {isApiRequestModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-indigo-500" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Request API Access ({requestTier})
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsApiRequestModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Programmatic REST API usage is restricted to administrators and paid accounts. Submit your details below to request developer activation from the platform administrator.
+            </p>
+
+            <form onSubmit={handleSendApiRequest} className="space-y-3.5 text-xs">
+              <div>
+                <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">
+                  Selected Tier
+                </label>
+                <select
+                  value={requestTier}
+                  onChange={(e) => setRequestTier(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="Pro Developer">Pro Developer ($19 / mo - 25,000 requests)</option>
+                  <option value="Enterprise Scale">Enterprise Scale ($99 / mo - Unlimited)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">
+                  Contact Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="your-email@example.com"
+                  value={requestContactEmail}
+                  onChange={(e) => setRequestContactEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-700 dark:text-slate-300 font-semibold block mb-1">
+                  Intended Integration / Use Case
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="e.g. Automating link creation from our marketing CMS..."
+                  value={requestReason}
+                  onChange={(e) => setRequestReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={requestSending}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs cursor-pointer disabled:opacity-50 transition-colors shadow-md"
+                >
+                  {requestSending ? 'Sending Request...' : 'Submit Upgrade Request'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsApiRequestModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
+                >
+                  Cancel
                 </button>
               </div>
             </form>

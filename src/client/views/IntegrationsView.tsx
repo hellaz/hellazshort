@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ApiKey } from '../types';
+import { ApiKey, User } from '../types';
 import { apiRequest } from '../api';
 import { useToast } from '../components/Toast';
 import {
@@ -13,12 +13,20 @@ import {
   ShieldCheck,
   AlertTriangle,
   X,
+  Lock,
+  ArrowRight,
 } from 'lucide-react';
 
-export const IntegrationsView: React.FC = () => {
+interface IntegrationsViewProps {
+  user?: User | null;
+  onNavigate?: (page: string) => void;
+}
+
+export const IntegrationsView: React.FC<IntegrationsViewProps> = ({ user, onNavigate }) => {
   const { showToast } = useToast();
+  const isAdmin = user?.role === 'owner' || user?.role === 'admin';
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isAdmin);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [keyName, setKeyName] = useState('');
   const [newSecretKey, setNewSecretKey] = useState<string | null>(null);
@@ -26,6 +34,7 @@ export const IntegrationsView: React.FC = () => {
   const [codeTab, setCodeTab] = useState<'curl' | 'node' | 'python'>('curl');
 
   const fetchKeys = async () => {
+    if (!isAdmin) return;
     setLoading(true);
     try {
       const res = await apiRequest('api-keys');
@@ -38,8 +47,10 @@ export const IntegrationsView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchKeys();
-  }, []);
+    if (isAdmin) {
+      fetchKeys();
+    }
+  }, [isAdmin]);
 
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +125,55 @@ payload = {
 response = requests.post(url, json=payload, headers=headers)
 print(response.json())`,
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl text-center max-w-2xl mx-auto space-y-6">
+          <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-inner">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div>
+            <span className="text-[10px] font-bold tracking-widest text-indigo-600 dark:text-indigo-400 uppercase bg-indigo-50 dark:bg-indigo-950 px-2.5 py-1 rounded-full">
+              Developer Feature
+            </span>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-2">
+              Programmatic REST API Access is Restricted
+            </h2>
+            <p className="text-xs text-slate-500 mt-2 max-w-lg mx-auto leading-relaxed">
+              Programmatic API keys and endpoints are only available to platform administrators unless approved via a paid developer upgrade. Free user accounts create and manage links exclusively through the web dashboard.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 text-left text-xs space-y-2.5">
+            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              <span>What You Get With a Developer Upgrade</span>
+            </div>
+            <ul className="text-slate-600 dark:text-slate-400 space-y-1.5 pl-5 list-disc text-[11px] leading-relaxed">
+              <li><strong>25,000+ API calls / month</strong> for high-speed automated shortening</li>
+              <li><strong>Custom API Key Provisioning</strong> with strict CIDR IP Whitelisting</li>
+              <li><strong>Batch Link Generation</strong> and automated link expiration rules</li>
+              <li><strong>Webhook Alerts</strong> on status check degradation and broken destination URLs</li>
+            </ul>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('monetization')}
+                className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/30 cursor-pointer transition-colors flex items-center justify-center gap-2"
+              >
+                <span>View Plans &amp; Request Upgrade</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

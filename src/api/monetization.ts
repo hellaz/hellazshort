@@ -128,10 +128,42 @@ monetizationRouter.get('/overview', authMiddleware, async (c) => {
       api_usage: {
         month_key: currentMonthKey,
         request_count: apiRequestsCount,
-        monthly_limit: user.role === 'owner' || user.role === 'admin' ? 100000 : 10000,
-        tier_name: user.role === 'owner' || user.role === 'admin' ? 'Enterprise' : 'Pro Developer',
+        monthly_limit: user.role === 'owner' || user.role === 'admin' ? 100000 : 0,
+        tier_name: user.role === 'owner' || user.role === 'admin' ? 'Enterprise / Admin' : 'Free Community Plan',
+        is_api_enabled: user.role === 'owner' || user.role === 'admin',
       },
     },
+  });
+});
+
+// Submit Request for API Access / Developer Plan Upgrade
+monetizationRouter.post('/api-request', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  const body = await c.req.json().catch(() => ({}));
+  const requestedTier = (body.tier || 'Pro Developer').trim();
+  const contactEmail = (body.email || user.email || '').trim();
+  const useCase = (body.use_case || body.reason || 'Requested programmatic REST API access').trim();
+
+  // Record upgrade request in audit log for administrators
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO audit_logs (id, user_id, event_type, details, ip_address, user_agent, created_at)
+       VALUES (?, ?, 'api_upgrade_request', ?, ?, ?, ?)`
+    ).bind(
+      generateId(),
+      user.id,
+      JSON.stringify({ requested_tier: requestedTier, contact_email: contactEmail, use_case: useCase }),
+      c.req.header('CF-Connecting-IP') || '127.0.0.1',
+      c.req.header('User-Agent') || 'Browser',
+      Date.now()
+    ).run();
+  } catch (err) {
+    console.warn('Failed to insert audit log for API request:', err);
+  }
+
+  return c.json({
+    success: true,
+    message: `API access upgrade request for ${requestedTier} submitted. The platform administrator will review your request and get in touch at ${contactEmail || 'your email'}.`,
   });
 });
 

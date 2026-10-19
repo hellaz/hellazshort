@@ -261,7 +261,9 @@ export const AppContent: React.FC = () => {
           )}
 
           {/* Integrations */}
-          {currentPage === 'integrations' && <IntegrationsView />}
+          {currentPage === 'integrations' && (
+            <IntegrationsView user={user} onNavigate={(p) => setCurrentPage(p)} />
+          )}
 
           {/* Settings */}
           {currentPage.startsWith('settings') && (
