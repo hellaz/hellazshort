@@ -82,14 +82,16 @@ export function renderSplashPage(
     countdown?: number;
     message?: string;
     banner_url?: string;
+    ad_code?: string;
     button_text?: string;
   },
   destinationUrl: string
 ): string {
-  const countdown = Math.max(Number(splash.countdown) || 5, 2);
-  const title = escapeHtml(splash.title || 'Sponsored Link');
+  const countdown = Math.max(Number(splash.countdown) || 15, 2);
+  const title = escapeHtml(splash.title || 'Sponsored Destination');
   const customMessage = escapeHtml(splash.message || 'You will be redirected to your destination shortly.');
   const bannerUrl = splash.banner_url ? escapeHtml(splash.banner_url) : '';
+  const adCode = splash.ad_code ? splash.ad_code : `<div style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px dashed #6366f1; border-radius: 16px; padding: 1.5rem; text-align: center; color: #a5b4fc; font-size: 0.85rem;"><div style="font-weight: 700; margin-bottom: 0.25rem; color: #fff;">Sponsored AdSense Unit</div><div>Google AdSense Responsive Banner &bull; 728x90</div></div>`;
   const buttonText = escapeHtml(splash.button_text || 'Proceed to Destination');
   const safeDest = escapeHtml(destinationUrl);
 
@@ -102,11 +104,14 @@ export function renderSplashPage(
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
-    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 2rem; max-width: 500px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 2.25rem; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    .logo { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 900; color: #fff; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+    .logo-badge { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #9333ea); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); }
     .badge { display: inline-flex; align-items: center; gap: 0.5rem; background: #1e293b; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; color: #818cf8; margin-bottom: 1.25rem; }
     .timer { font-family: monospace; font-size: 0.85rem; background: #312e81; color: #c7d2fe; padding: 0.2rem 0.6rem; border-radius: 9999px; }
     h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.75rem; }
     .banner { width: 100%; max-height: 200px; object-fit: cover; border-radius: 16px; margin-bottom: 1.25rem; border: 1px solid #334155; }
+    .ad-container { margin-bottom: 1.25rem; width: 100%; }
     .msg-box { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; }
     p { font-size: 0.9rem; color: #cbd5e1; line-height: 1.6; }
     .target-preview { font-size: 0.75rem; color: #64748b; font-family: monospace; word-break: break-all; margin-top: 0.5rem; }
@@ -119,18 +124,27 @@ export function renderSplashPage(
 </head>
 <body>
   <div class="card">
-    <div class="badge">
-      <span>✨ ${title}</span>
-      <span id="countdown" class="timer">${countdown}s</span>
+    <div class="logo">
+      <div class="logo-badge">⚡</div>
+      <span>URLZ</span>
+    </div>
+    <div>
+      <div class="badge">
+        <span>✨ ${title}</span>
+        <span id="countdown" class="timer">${countdown}s</span>
+      </div>
     </div>
     ${bannerUrl ? `<img src="${bannerUrl}" alt="Banner" class="banner" />` : ''}
+    <div class="ad-container">
+      ${adCode}
+    </div>
     <div class="msg-box">
       <p>${customMessage}</p>
       <div class="target-preview">Target: ${safeDest}</div>
     </div>
     <a id="proceedBtn" href="${safeDest}" class="btn disabled">Please wait ${countdown}s...</a>
     <div class="footer">
-      <span>🔒 URLZ Interstitial</span>
+      <span>🔒 URLZ Monitized Interstitial</span>
       <a href="/report-abuse?url=${encodeURIComponent(destinationUrl)}">Report Abuse</a>
     </div>
   </div>
@@ -138,16 +152,21 @@ export function renderSplashPage(
     let remaining = ${countdown};
     const cd = document.getElementById('countdown');
     const btn = document.getElementById('proceedBtn');
+    const dest = "${safeDest}";
     const interval = setInterval(() => {
       remaining--;
       if (remaining > 0) {
-        cd.textContent = remaining + 's';
-        btn.textContent = 'Please wait ' + remaining + 's...';
+        if (cd) cd.textContent = remaining + 's';
+        if (btn) btn.textContent = 'Please wait ' + remaining + 's...';
       } else {
         clearInterval(interval);
-        cd.textContent = 'Ready';
-        btn.textContent = '${buttonText} \\u2192';
-        btn.classList.remove('disabled');
+        if (cd) cd.textContent = 'Ready';
+        if (btn) {
+          btn.textContent = '${buttonText} \\u2192';
+          btn.classList.remove('disabled');
+        }
+        // Auto redirect after countdown finishes
+        window.location.href = dest;
       }
     }, 1000);
   </script>

@@ -878,9 +878,23 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
           name: provider.toUpperCase() + ' User'
         };
 
+        let csrfToken = '';
+        try {
+          const csrfRes = await fetch('/api/v1/auth/csrf');
+          if (csrfRes.ok) {
+            const csrfData = await csrfRes.json();
+            csrfToken = csrfData?.data?.csrfToken || '';
+          }
+        } catch (e) {}
+
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+        };
+
         let res = await fetch('/dashboard/api/v1/auth/social/' + provider, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify(payload)
         });
@@ -888,7 +902,7 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
         if (!res.ok) {
           res = await fetch('/api/v1/auth/social/' + provider, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             credentials: 'include',
             body: JSON.stringify(payload)
           });
