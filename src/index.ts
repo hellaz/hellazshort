@@ -541,11 +541,34 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <a href="/dashboard/login" class="px-3.5 py-1.5 text-xs sm:text-sm font-medium text-slate-300 hover:text-white transition-colors">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Instant Social Sign-in quick icons -->
+        <div class="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-900 border border-slate-800">
+          <span class="text-[10px] text-slate-400 font-semibold px-1">Social Sign-In:</span>
+          <button onclick="handleSocialAuth('google')" class="p-1 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer" title="Sign In with Google">
+            <svg class="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.1 9 5 12 5z" />
+              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
+              <path fill="#FBBC05" d="M5.6 14.8c-.3-.8-.4-1.8-.4-2.8s.1-2 .4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z" />
+              <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.1-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
+            </svg>
+          </button>
+          <button onclick="handleSocialAuth('twitter')" class="p-1 rounded-lg hover:bg-slate-800 text-sky-400 transition-colors cursor-pointer" title="Sign In with Twitter / X">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+          </button>
+          <button onclick="handleSocialAuth('facebook')" class="p-1 rounded-lg hover:bg-slate-800 text-blue-500 transition-colors cursor-pointer" title="Sign In with Facebook">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+          </button>
+        </div>
+
+        <a href="/dashboard/login" class="px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-300 hover:text-white transition-colors">
           Sign In
         </a>
-        <a href="/dashboard" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-xs sm:text-sm shadow-md shadow-indigo-600/30 transition-all">
+        <a href="/dashboard" class="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-xs sm:text-sm shadow-md shadow-indigo-600/30 transition-all">
           Open Dashboard &rarr;
         </a>
       </div>
@@ -574,7 +597,7 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
         monetized splash pages, retargeting pixels, and deep geo-targeting.
       </p>
 
-      <!-- Instant Shortener Form -->
+      <!-- Instant Shortener Form with Security Verification -->
       <div class="max-w-2xl mx-auto bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl text-left">
         <form id="shortForm" class="space-y-3">
           <div class="flex flex-col sm:flex-row gap-2">
@@ -588,7 +611,7 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
             <button
               type="submit"
               id="submitBtn"
-              class="px-6 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+              class="px-6 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-50"
             >
               <span>Shorten</span> &rarr;
             </button>
@@ -637,7 +660,82 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
               />
             </div>
           </div>
+
+          <!-- Security Verification (Anti-Bot Captcha) -->
+          <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2 text-xs pt-2">
+            <div class="flex items-center justify-between text-slate-300">
+              <div class="flex items-center gap-1.5 font-semibold text-[11px] text-indigo-400">
+                <span class="text-emerald-400">🛡️</span>
+                <span>Security Verification (Anti-Bot Captcha)</span>
+              </div>
+              <button
+                type="button"
+                id="refreshCaptchaBtn"
+                class="text-slate-500 hover:text-slate-300 p-1 cursor-pointer transition-colors text-xs"
+                title="Refresh Challenge"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+            <div class="flex items-center gap-3">
+              <div id="captchaProblem" class="px-3 py-1.5 bg-slate-900 font-mono text-sm font-bold text-amber-400 rounded-lg border border-slate-800 select-none">
+                4 + 5 = ?
+              </div>
+              <input
+                type="text"
+                id="captchaAnswer"
+                maxlength="3"
+                placeholder="Answer..."
+                class="w-24 px-3 py-1.5 font-mono text-xs rounded-lg border border-slate-700 bg-slate-900 text-white focus:outline-none focus:border-indigo-500"
+              />
+              <span id="captchaStatus" class="hidden text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                ✓ Verified
+              </span>
+            </div>
+          </div>
         </form>
+
+        <!-- Social Sign-in Callout inside Form Card -->
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div class="flex items-center gap-1.5 text-slate-400 text-[11px]">
+            <span>✨ Get 10 Free Short Links with instant Social Sign-In:</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              onclick="handleSocialAuth('google')"
+              class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-indigo-500 text-slate-200 font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.1 9 5 12 5z" />
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
+                <path fill="#FBBC05" d="M5.6 14.8c-.3-.8-.4-1.8-.4-2.8s.1-2 .4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z" />
+                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.1-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
+              </svg>
+              <span>Google</span>
+            </button>
+            <button
+              type="button"
+              onclick="handleSocialAuth('twitter')"
+              class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-sky-500 text-slate-200 font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <svg class="w-3.5 h-3.5 fill-sky-400" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+              <span>Twitter</span>
+            </button>
+            <button
+              type="button"
+              onclick="handleSocialAuth('facebook')"
+              class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-blue-600 text-slate-200 font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <svg class="w-3.5 h-3.5 fill-blue-500" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+              <span>Facebook</span>
+            </button>
+          </div>
+        </div>
 
         <div id="resultCard" class="hidden mt-4 p-4 rounded-xl bg-slate-950 border border-indigo-500/30">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -779,6 +877,86 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
     const advBox = document.getElementById('advBox');
     toggleAdv.addEventListener('click', () => advBox.classList.toggle('hidden'));
 
+    // Captcha Logic for Instant Shortener
+    let cap1 = 4;
+    let cap2 = 5;
+    let isCapSolved = false;
+    const problemEl = document.getElementById('captchaProblem');
+    const answerEl = document.getElementById('captchaAnswer');
+    const statusEl = document.getElementById('captchaStatus');
+    const refreshBtn = document.getElementById('refreshCaptchaBtn');
+
+    function refreshCaptcha() {
+      cap1 = Math.floor(Math.random() * 8) + 2;
+      cap2 = Math.floor(Math.random() * 8) + 1;
+      isCapSolved = false;
+      if (problemEl) problemEl.textContent = cap1 + ' + ' + cap2 + ' = ?';
+      if (answerEl) {
+        answerEl.value = '';
+        answerEl.classList.remove('border-emerald-500', 'bg-emerald-950/20');
+        answerEl.classList.add('border-slate-700');
+      }
+      if (statusEl) statusEl.classList.add('hidden');
+    }
+
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshCaptcha);
+    if (answerEl) {
+      answerEl.addEventListener('input', () => {
+        const val = answerEl.value.trim();
+        if (val === (cap1 + cap2).toString()) {
+          isCapSolved = true;
+          answerEl.classList.remove('border-slate-700');
+          answerEl.classList.add('border-emerald-500', 'bg-emerald-950/20');
+          if (statusEl) statusEl.classList.remove('hidden');
+        } else {
+          isCapSolved = false;
+          answerEl.classList.remove('border-emerald-500', 'bg-emerald-950/20');
+          answerEl.classList.add('border-slate-700');
+          if (statusEl) statusEl.classList.add('hidden');
+        }
+      });
+    }
+
+    // Initialize challenge
+    refreshCaptcha();
+
+    // Instant Social Sign-In Handler
+    async function handleSocialAuth(provider) {
+      try {
+        const payload = {
+          email: provider + '_user@urlz.eu.org',
+          name: provider.toUpperCase() + ' User'
+        };
+
+        let res = await fetch('/dashboard/api/v1/auth/social/' + provider, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          res = await fetch('/api/v1/auth/social/' + provider, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const data = await res.json();
+        if (data.success && data.data?.token) {
+          localStorage.setItem('auth_token', data.data.token);
+          document.cookie = 'session_token=' + data.data.token + '; Path=/; Max-Age=3600; SameSite=Lax';
+          window.location.href = '/dashboard';
+        } else {
+          alert(data.message || data.error || 'Failed to authenticate via ' + provider);
+        }
+      } catch (e) {
+        alert('Authentication failed with ' + provider);
+      }
+    }
+
     const shortForm = document.getElementById('shortForm');
     const destUrl = document.getElementById('destUrl');
     const customAlias = document.getElementById('customAlias');
@@ -789,6 +967,12 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
 
     shortForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!isCapSolved) {
+        alert('Please solve the Security Verification challenge before shortening links.');
+        if (answerEl) answerEl.focus();
+        return;
+      }
+
       const url = destUrl.value.trim();
       const alias = customAlias.value.trim();
       const pass = linkPassword.value.trim();
@@ -800,7 +984,8 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
           destination_url: url,
           slug: alias || undefined,
           password: pass || undefined,
-          redirect_code: 301
+          redirect_code: 301,
+          captcha_solution: (cap1 + cap2).toString()
         })
       });
 

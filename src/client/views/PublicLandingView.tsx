@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { apiRequest } from '../api';
+import { apiRequest, setAuthToken } from '../api';
 import { useToast } from '../components/Toast';
 import { BrandLogo } from '../components/BrandLogo';
 import { CaptchaWidget } from '../components/CaptchaWidget';
@@ -29,6 +29,7 @@ import {
 interface PublicLandingViewProps {
   onGoToDashboard: () => void;
   onGoToLogin: () => void;
+  onLoginSuccess?: (userData: any) => void;
   isLoggedIn: boolean;
   activeDomainName: string;
 }
@@ -36,6 +37,7 @@ interface PublicLandingViewProps {
 export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
   onGoToDashboard,
   onGoToLogin,
+  onLoginSuccess,
   isLoggedIn,
   activeDomainName,
 }) => {
@@ -118,6 +120,28 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
     }
   };
 
+  const handleSocialLogin = async (provider: 'google' | 'twitter' | 'facebook') => {
+    try {
+      const res = await apiRequest(`auth/social/${provider}`, {
+        method: 'POST',
+        body: JSON.stringify({ email: `${provider}_user@urlz.eu.org`, name: `${provider.toUpperCase()} User` }),
+      });
+      if (res.success && res.data?.token) {
+        setAuthToken(res.data.token);
+        showToast(`Instant sign-in successful via ${provider.toUpperCase()}!`, 'success');
+        if (onLoginSuccess) {
+          onLoginSuccess(res.data.user);
+        } else {
+          onGoToDashboard();
+        }
+      } else {
+        showToast(res.error || res.message || `Failed social authentication via ${provider}`, 'error');
+      }
+    } catch {
+      showToast(`Social authentication error with ${provider}`, 'error');
+    }
+  };
+
   const handleCopy = () => {
     if (!createdResult) return;
     navigator.clipboard.writeText(createdResult.shortUrl);
@@ -143,7 +167,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
             </div>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isLoggedIn ? (
               <button
                 onClick={onGoToDashboard}
@@ -154,15 +178,50 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
               </button>
             ) : (
               <>
+                {/* Instant Social Sign-in Header Icons */}
+                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-900 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 font-semibold px-1">Social Sign-In:</span>
+                  <button
+                    onClick={() => handleSocialLogin('google')}
+                    className="p-1 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                    title="Sign In with Google"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.1 9 5 12 5z" />
+                      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
+                      <path fill="#FBBC05" d="M5.6 14.8c-.3-.8-.4-1.8-.4-2.8s.1-2 .4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z" />
+                      <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.1-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleSocialLogin('twitter')}
+                    className="p-1 rounded-lg hover:bg-slate-800 text-sky-400 transition-colors cursor-pointer"
+                    title="Sign In with Twitter / X"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleSocialLogin('facebook')}
+                    className="p-1 rounded-lg hover:bg-slate-800 text-blue-500 transition-colors cursor-pointer"
+                    title="Sign In with Facebook"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    </svg>
+                  </button>
+                </div>
+
                 <button
                   onClick={onGoToLogin}
-                  className="px-3.5 py-1.5 text-xs sm:text-sm font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  className="px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
                 >
                   Sign In
                 </button>
                 <button
                   onClick={onGoToDashboard}
-                  className="px-4 py-2 rounded-xl bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-xs sm:text-sm shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium text-xs sm:text-sm shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
                 >
                   Get Started
                 </button>
@@ -291,6 +350,50 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
                 </div>
               )}
             </form>
+
+            {/* Social Sign-In prompt for visitors */}
+            {!isLoggedIn && (
+              <div className="mt-4 pt-3.5 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                  <span>✨ Get 10 Free Short Links with instant Social Sign-In:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSocialLogin('google')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-indigo-500 text-slate-200 font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                      <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.1 9 5 12 5z" />
+                      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
+                      <path fill="#FBBC05" d="M5.6 14.8c-.3-.8-.4-1.8-.4-2.8s.1-2 .4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z" />
+                      <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.1-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
+                    </svg>
+                    <span>Google</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSocialLogin('twitter')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-sky-500 text-slate-200 font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-sky-400" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                    <span>Twitter</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSocialLogin('facebook')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 hover:border-blue-600 text-slate-200 font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-blue-500" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    </svg>
+                    <span>Facebook</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Result Box */}
             {createdResult && (

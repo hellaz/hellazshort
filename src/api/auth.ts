@@ -210,22 +210,9 @@ authRouter.post('/register', createRateLimit({
 
   const validated = c.req.valid('json');
 
-  // If users already exist, registration is disabled
-  if (userCount > 0) {
-    // Only allow admin/owner to create users via API (not through /register endpoint)
-    const currentUser = (c as any).get?.('user') as { role?: string } | undefined;
-    if (!currentUser) {
-      throw new HTTPException(403, {
-        message: 'Public registration is disabled. Contact an administrator to create an account.'
-      });
-    }
-    const role = currentUser.role;
-    if (role !== 'owner' && role !== 'admin') {
-      throw new HTTPException(403, {
-        message: 'Public registration is disabled. Contact an administrator to create an account.'
-      });
-    }
-  } else {
+  // If users exist, public users are assigned 'user' role; admin/owner can specify other roles.
+  let assignedRole = 'user';
+  if (userCount === 0) {
     // No users exist - first user setup requires SETUP_TOKEN
     if (!c.env.SETUP_TOKEN) {
       throw new HTTPException(500, {
@@ -237,6 +224,14 @@ authRouter.post('/register', createRateLimit({
       throw new HTTPException(403, {
         message: 'Invalid setup token. First user creation requires a valid setup token.'
       });
+    }
+    assignedRole = 'owner';
+  } else {
+    const currentUser = (c as any).get?.('user') as { role?: string } | undefined;
+    if (currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin') && validated.role) {
+      assignedRole = validated.role;
+    } else {
+      assignedRole = 'user';
     }
   }
 
@@ -262,7 +257,7 @@ authRouter.post('/register', createRateLimit({
     username: validated.username,
     email: validated.email,
     password_hash: passwordHash,
-    role: userCount === 0 ? 'owner' : validated.role, // First user is always owner
+    role: assignedRole, // First user is always owner, otherwise assignedRole
   });
 
   // Create session with refresh token

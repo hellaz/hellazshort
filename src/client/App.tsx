@@ -162,6 +162,7 @@ export const AppContent: React.FC = () => {
         <PublicLandingView
           onGoToDashboard={() => setCurrentPage(user ? 'dashboard' : 'login')}
           onGoToLogin={() => setCurrentPage('login')}
+          onLoginSuccess={handleLoginSuccess}
           isLoggedIn={Boolean(user)}
           activeDomainName={activeDomainName}
         />
