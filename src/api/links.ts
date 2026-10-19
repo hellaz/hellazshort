@@ -562,13 +562,30 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
 
   const validated = c.req.valid('json');
 
+  // Auto-resolve domain_id if omitted (e.g. guest/public landing page requests)
+  let effectiveDomainId = validated.domain_id;
+  if (!effectiveDomainId) {
+    const reqHost = (c.req.header('host') || 'urlz.eu.org').split(':')[0].toLowerCase();
+    const domMatch = await getDomainByName(c.env, reqHost);
+    if (domMatch && domMatch.status === 'active') {
+      effectiveDomainId = domMatch.id;
+    } else {
+      const { listDomains } = await import('../db/domains');
+      const allDomains = await listDomains(c.env);
+      const activePrimary = allDomains.find((d) => d.status === 'active' && d.domain_name !== 'localhost') || allDomains[0];
+      effectiveDomainId = activePrimary?.id;
+    }
+  }
+
+  if (!effectiveDomainId) {
+    throw new HTTPException(400, { message: 'No valid active domain available for short link creation.' });
+  }
+
   // RE-VALIDATE domain access from database for write operations (security)
-  // Always check from DB, ignore cache for writes
   const user = (c as any).get?.('user') as User | undefined;
   const apiKey = (c as any).get?.('apiKey') as ApiKeyContext | undefined;
-  if (user && !apiKey) {
-    // Re-validate from database (ignore cached domain IDs)
-    const hasAccess = await canAccessDomain(c.env, user, validated.domain_id);
+  if (user && !apiKey && validated.domain_id) {
+    const hasAccess = await canAccessDomain(c.env, user, effectiveDomainId);
     if (!hasAccess) {
       throw new HTTPException(403, { message: 'Access denied. You do not have access to this domain.' });
     }
@@ -629,7 +646,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
   }
 
   // Validate domain exists and is active
-  const domain = await getDomainById(c.env, validated.domain_id);
+  const domain = await getDomainById(c.env, effectiveDomainId);
   if (!domain) {
     throw new HTTPException(404, { message: 'Domain not found' });
   }
@@ -653,7 +670,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
 
   // Check API key domain scoping (already declared above)
   if (apiKey && apiKey.domain_ids && apiKey.domain_ids.length > 0) {
-    if (!apiKey.domain_ids.includes(validated.domain_id)) {
+    if (!apiKey.domain_ids.includes(effectiveDomainId)) {
       throw new HTTPException(403, { message: 'Domain not on scope' });
     }
   }
@@ -664,7 +681,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
     slug = generateSlug(8);
     // Check uniqueness
     let attempts = 0;
-    while (await checkSlugExists(c.env, validated.domain_id, slug) && attempts < 10) {
+    while (await checkSlugExists(c.env, effectiveDomainId, slug) && attempts < 10) {
       slug = generateSlug(8);
       attempts++;
     }
@@ -678,7 +695,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
     if (isReservedSlug(slug)) {
       throw new HTTPException(400, { message: 'Slug is reserved' });
     }
-    if (await checkSlugExists(c.env, validated.domain_id, slug)) {
+    if (await checkSlugExists(c.env, effectiveDomainId, slug)) {
       throw new HTTPException(409, { message: 'Slug already exists' });
     }
   }
@@ -719,7 +736,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
 
   // Resolve retargeting pixels BEFORE creating the link so a cross-domain id fails cleanly.
   // Omitted -> the domain's default pixels.
-  const pixelIds = await resolveLinkPixelIds(c.env, validated.domain_id, validated.pixel_ids, { applyDefaults: true })
+  const pixelIds = await resolveLinkPixelIds(c.env, effectiveDomainId, validated.pixel_ids, { applyDefaults: true })
     .catch(rethrowPixelError);
 
   // Create link. Translate a UNIQUE(domain_id, slug) race (check-then-insert window)
@@ -728,7 +745,7 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
   try {
     const passwordHash = validated.password ? await hashPassword(validated.password) : null;
     link = await createLink(c.env, {
-      domain_id: validated.domain_id,
+      domain_id: effectiveDomainId,
       slug,
       destination_url: destinationUrl,
       title,

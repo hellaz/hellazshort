@@ -126,7 +126,7 @@ const baseLinkSchema = z.object({
  * Schema for creating a new link
  */
 export const createLinkSchema = baseLinkSchema.extend({
-  domain_id: z.string().min(1),
+  domain_id: z.string().min(1).optional(),
   slug: z.string().optional(),
   route: z.string().optional(),
   redirect_code: redirectCodeSchema.default(301),

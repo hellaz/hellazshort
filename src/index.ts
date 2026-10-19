@@ -946,8 +946,7 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
         resLink.textContent = fullUrl;
         resultCard.classList.remove('hidden');
       } else {
-        alert(data.message || data.error || 'Please sign in to create short links on this domain.');
-        window.location.href = '/dashboard/login';
+        alert(data.message || data.error || 'Failed to shorten link.');
       }
     });
 
