@@ -195,7 +195,12 @@ export const AppContent: React.FC = () => {
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}
         onLogout={handleLogout}
-        onCreateLinkClick={() => setCreateModalOpen(true)}
+        onCreateLinkClick={() => {
+          if (currentPage !== 'dashboard') {
+            setCurrentPage('dashboard');
+          }
+          setCreateModalOpen(true);
+        }}
         onNavigate={(p) => setCurrentPage(p)}
       />
 
@@ -206,6 +211,12 @@ export const AppContent: React.FC = () => {
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
           userRole={user?.role}
+          onCreateLinkClick={() => {
+            if (currentPage !== 'dashboard') {
+              setCurrentPage('dashboard');
+            }
+            setCreateModalOpen(true);
+          }}
         />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
@@ -243,7 +254,9 @@ export const AppContent: React.FC = () => {
           {currentPage === 'pixels' && <PixelsView />}
 
           {/* Monetization & Revenue */}
-          {currentPage === 'monetization' && <MonetizationView />}
+          {currentPage === 'monetization' && (
+            <MonetizationView user={user} onNavigate={(p) => setCurrentPage(p)} />
+          )}
 
           {/* Integrations */}
           {currentPage === 'integrations' && <IntegrationsView />}

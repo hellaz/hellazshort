@@ -18,15 +18,38 @@ import {
   X,
 } from 'lucide-react';
 
-export const MonetizationView: React.FC = () => {
+import { User } from '../types';
+
+interface MonetizationViewProps {
+  user?: User | null;
+  onNavigate?: (page: string) => void;
+}
+
+export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavigate }) => {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'ads' | 'campaigns' | 'api' | 'referrals'>('ads');
+  const isAdmin = user?.role === 'owner' || user?.role === 'admin';
+  const [activeTab, setActiveTab] = useState<'ads' | 'campaigns' | 'api' | 'referrals'>(
+    isAdmin ? 'ads' : 'referrals'
+  );
   const [loading, setLoading] = useState(false);
+
+  // Referral Code Application & Demo Credits
+  const [claimCodeInput, setClaimCodeInput] = useState('');
+  const [claimingCode, setClaimingCode] = useState(false);
+  const [grantingDemoCredit, setGrantingDemoCredit] = useState(false);
 
   // Overview Data
   const [overview, setOverview] = useState<any>({
     total_clicks: 0,
     estimated_earnings: 0,
+    quota: {
+      free_limit: 10,
+      bonus_credits: 0,
+      total_limit: 10,
+      used_links: 0,
+      remaining_links: 10,
+      is_unlimited: false,
+    },
     referrals: { total_referred: 0, bonus_links_earned: 0, referral_url: '' },
     api_usage: { month_key: '', request_count: 0, monthly_limit: 10000, tier_name: 'Pro Developer' },
   });
@@ -130,11 +153,70 @@ export const MonetizationView: React.FC = () => {
     }
   };
 
-  const handleCopyReferralUrl = () => {
-    const refUrl = overview.referrals?.referral_url || window.location.origin;
-    navigator.clipboard.writeText(refUrl);
-    showToast('Referral link copied to clipboard!', 'success');
+  const handleClaimReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!claimCodeInput.trim()) return;
+    setClaimingCode(true);
+    try {
+      const res = await apiRequest('monetization/referrals/claim', {
+        method: 'POST',
+        body: JSON.stringify({ referral_code: claimCodeInput.trim() }),
+      });
+      if (res.success) {
+        showToast(res.message || 'Referral applied successfully!', 'success');
+        setClaimCodeInput('');
+        fetchOverview();
+      } else {
+        showToast(res.error || 'Failed to apply referral', 'error');
+      }
+    } catch {
+      showToast('Network error applying referral', 'error');
+    } finally {
+      setClaimingCode(false);
+    }
   };
+
+  const handleGrantDemoCredits = async () => {
+    setGrantingDemoCredit(true);
+    try {
+      const res = await apiRequest('monetization/credits/grant', {
+        method: 'POST',
+        body: JSON.stringify({ amount: 50 }),
+      });
+      if (res.success) {
+        showToast('+50 Link Creation Credits Awarded!', 'success');
+        fetchOverview();
+      } else {
+        showToast(res.error || 'Failed to award credits', 'error');
+      }
+    } catch {
+      showToast('Network error awarding credits', 'error');
+    } finally {
+      setGrantingDemoCredit(false);
+    }
+  };
+
+  const quota = overview.quota || {
+    free_limit: 10,
+    bonus_credits: 0,
+    total_limit: 10,
+    used_links: 0,
+    remaining_links: 10,
+    is_unlimited: isAdmin,
+  };
+
+  const percentUsed = quota.is_unlimited
+    ? 0
+    : Math.min(100, Math.round((quota.used_links / (quota.total_limit || 1)) * 100));
+
+  const availableTabs = [
+    ...(isAdmin
+      ? [{ id: 'ads' as const, label: 'Platform Ad Network & Geo CPM', icon: TrendingUp }]
+      : []),
+    { id: 'referrals' as const, label: 'Affiliate & Free Link Credits', icon: Users },
+    { id: 'campaigns' as const, label: 'Advertiser Campaigns', icon: Megaphone },
+    { id: 'api' as const, label: 'Paid API & Usage', icon: Code2 },
+  ];
 
   return (
     <div className="space-y-6">
@@ -143,10 +225,12 @@ export const MonetizationView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <DollarSign className="w-6 h-6 text-emerald-500" />
-            <span>Monetization &amp; Revenue Hub</span>
+            <span>Monetization &amp; Link Credits Hub</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Earn ad revenue, run targeted advertiser campaigns, bill API usage, and manage referral programs
+            {isAdmin
+              ? 'Configure platform ad networks, approve revenue payouts, and manage advertiser campaigns'
+              : 'Earn bonus link credits via referrals to unlock creating more than 10 links, run campaigns, and track API limits'}
           </p>
         </div>
         <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800">
@@ -161,14 +245,111 @@ export const MonetizationView: React.FC = () => {
         </div>
       </div>
 
+      {/* SHORT LINK CREATION QUOTA & CREDITS CARD */}
+      <div className="bg-gradient-to-r from-indigo-900/30 via-slate-900 to-slate-900 border border-indigo-500/30 p-6 rounded-2xl shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                Short Link Creation Allowance
+              </span>
+              {quota.is_unlimited ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/40">
+                  Unlimited (Admin)
+                </span>
+              ) : (
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    quota.remaining_links === 0
+                      ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  }`}
+                >
+                  {quota.remaining_links} Links Available
+                </span>
+              )}
+            </div>
+            <h3 className="text-lg font-bold text-white mt-1">
+              {quota.is_unlimited
+                ? `${quota.used_links} Short Links Created (Unlimited)`
+                : `${quota.used_links} of ${quota.total_limit} Free Short Links Used (${quota.remaining_links} remaining)`}
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGrantDemoCredits}
+              disabled={grantingDemoCredit}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-all disabled:opacity-50"
+              title="Add test referral credits (+50 links)"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <span>{grantingDemoCredit ? 'Adding Credits...' : 'Claim +50 Referral Credits'}</span>
+            </button>
+            <button
+              onClick={handleCopyReferralUrl}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 cursor-pointer flex items-center gap-1.5 transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Copy Affiliate Link</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        {!quota.is_unlimited && (
+          <div className="space-y-1.5">
+            <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  percentUsed >= 100
+                    ? 'bg-red-500'
+                    : percentUsed >= 80
+                    ? 'bg-amber-500'
+                    : 'bg-indigo-500'
+                }`}
+                style={{ width: `${percentUsed}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span>{percentUsed}% Quota Utilized</span>
+              <span>
+                Free Allowance: 10 Links + {quota.bonus_credits} Referral Credits = {quota.total_limit} Max
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Breakdown Badges */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+          <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-slate-500 block text-[10px] uppercase font-semibold">Base Free Links</span>
+            <span className="text-base font-bold font-mono text-white">10 Links</span>
+          </div>
+          <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-slate-500 block text-[10px] uppercase font-semibold">Referral Credits Earned</span>
+            <span className="text-base font-bold font-mono text-emerald-400">
+              +{quota.bonus_credits} Links
+            </span>
+          </div>
+          <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-slate-500 block text-[10px] uppercase font-semibold">Total Quota</span>
+            <span className="text-base font-bold font-mono text-indigo-400">
+              {quota.is_unlimited ? 'Unlimited' : `${quota.total_limit} Links`}
+            </span>
+          </div>
+          <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-slate-500 block text-[10px] uppercase font-semibold">Remaining Available</span>
+            <span className="text-base font-bold font-mono text-amber-400">
+              {quota.is_unlimited ? 'Unlimited' : `${quota.remaining_links} Links`}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex overflow-x-auto gap-1 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold pb-1 scrollbar-none">
-        {[
-          { id: 'ads', label: 'Ad Network & Geo CPM', icon: TrendingUp },
-          { id: 'campaigns', label: 'Advertiser Campaigns', icon: Megaphone },
-          { id: 'api', label: 'Paid API & Usage Billing', icon: Code2 },
-          { id: 'referrals', label: 'Affiliate & Referrals', icon: Users },
-        ].map((tab) => {
+        {availableTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -471,6 +652,7 @@ export const MonetizationView: React.FC = () => {
                 <span className="text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
                   {overview.referrals?.total_referred || 0} users
                 </span>
+                <span className="text-[11px] text-slate-400 block mt-1">Friends who registered via your link</span>
               </div>
 
               <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
@@ -478,7 +660,66 @@ export const MonetizationView: React.FC = () => {
                 <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
                   +{overview.referrals?.bonus_links_earned || 0} links
                 </span>
+                <span className="text-[11px] text-slate-400 block mt-1">+50 permanent link credits per invite</span>
               </div>
+            </div>
+
+            {/* How Credits Work Explainer */}
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+              <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500" />
+                <span>How Link Creation Credits Work</span>
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="font-bold text-indigo-500 mb-1">1. Base Free Tier (10 Links)</div>
+                  <p className="text-slate-500 text-[11px] leading-relaxed">
+                    Every registered account starts with 10 free short links with full analytics, QR codes, and routing.
+                  </p>
+                </div>
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="font-bold text-emerald-500 mb-1">2. Invite Friends (+50 Credits)</div>
+                  <p className="text-slate-500 text-[11px] leading-relaxed">
+                    Share your affiliate link. Whenever someone creates an account, you receive +50 link creation credits!
+                  </p>
+                </div>
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="font-bold text-amber-500 mb-1">3. Create Beyond 10 Links</div>
+                  <p className="text-slate-500 text-[11px] leading-relaxed">
+                    Your credits stack permanently, allowing you to create unlimited links without paying any subscription fees.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Apply Inviter's Code or Claim Bonus */}
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <form onSubmit={handleClaimReferral} className="flex items-center gap-2 w-full sm:w-auto">
+                <input
+                  type="text"
+                  placeholder="Enter friend's referral code / username"
+                  value={claimCodeInput}
+                  onChange={(e) => setClaimCodeInput(e.target.value)}
+                  className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs w-64"
+                />
+                <button
+                  type="submit"
+                  disabled={claimingCode || !claimCodeInput.trim()}
+                  className="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
+                >
+                  {claimingCode ? 'Applying...' : 'Apply Code'}
+                </button>
+              </form>
+
+              <button
+                type="button"
+                onClick={handleGrantDemoCredits}
+                disabled={grantingDemoCredit}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer flex items-center gap-2 shrink-0 transition-all disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>{grantingDemoCredit ? 'Granting...' : 'Test Referral (+50 Credits)'}</span>
+              </button>
             </div>
           </div>
         </div>

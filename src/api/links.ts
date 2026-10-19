@@ -601,6 +601,26 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
     }
   }
 
+  // Free short links quota (10 free links for regular users + referral bonus credits)
+  if (user && user.role !== 'owner' && user.role !== 'admin') {
+    const userLinksCountRow = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM links WHERE created_by = ? AND status != 'deleted'`
+    ).bind(user.id).first<{ count: number }>();
+    const usedCount = userLinksCountRow?.count || 0;
+
+    const bonusRow = await c.env.DB.prepare(
+      `SELECT SUM(bonus_links_granted) as total_bonus FROM referrals WHERE referrer_user_id = ?`
+    ).bind(user.id).first<{ total_bonus: number }>();
+    const bonusLinks = Number(bonusRow?.total_bonus) || 0;
+
+    const maxAllowed = 10 + bonusLinks;
+    if (usedCount >= maxAllowed) {
+      throw new HTTPException(403, {
+        message: `Free link limit reached (${usedCount}/${maxAllowed} links used). Free accounts are limited to 10 short links. Earn +50 link credits per invite in Monetization & Referrals to unlock more links!`,
+      });
+    }
+  }
+
   // Check for infinite redirect loop
   if (await isInfiniteRedirect(c.env, validated.destination_url)) {
     throw new HTTPException(400, {

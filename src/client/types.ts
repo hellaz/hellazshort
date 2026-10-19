@@ -14,6 +14,7 @@ export interface Domain {
   domain_name: string;
   normalized_domain_name: string;
   routing_path: string;
+  routes?: string[];
   default_redirect_code: number;
   status: 'active' | 'inactive';
   created_at: number;
@@ -26,6 +27,7 @@ export interface Link {
   domain_id: string;
   domain_name?: string;
   slug: string;
+  route?: string;
   routing_path?: string;
   destination_url: string;
   title?: string;
@@ -37,10 +39,24 @@ export interface Link {
   password?: string | null;
   is_cloaked?: boolean;
   category?: string | null;
+  category_id?: string | null;
   tags?: string[];
   metadata?: any;
   created_at: number;
   updated_at: number;
+  geo_redirects?: { country_code: string; destination_url: string }[];
+  city_redirects?: { city_name: string; destination_url: string }[];
+  device_redirects?: { device_type: 'desktop' | 'mobile' | 'tablet'; destination_url: string }[];
+  os_redirects?: { os: 'android' | 'ios'; destination_url: string }[];
+  og_meta?: {
+    og_title?: string;
+    og_description?: string;
+    og_image?: string;
+    og_type?: 'website' | 'article' | 'product' | 'video.other';
+    twitter_card?: 'summary' | 'summary_large_image';
+  };
+  pixels?: any[];
+  pixel_ids?: string[];
   // Redirect overrides
   redirect_rules?: {
     geo?: Record<string, string>;
@@ -120,9 +136,17 @@ export interface RootPageSettings {
   html?: string;
 }
 
+export interface StatusCheckFrequency {
+  value: number;
+  unit: 'days' | 'weeks';
+}
+
 export interface StatusCheckSettings {
+  frequency: StatusCheckFrequency;
   enabled: boolean;
-  interval_hours: number;
+  check_top_100_daily: boolean;
   batch_size: number;
-  timeout_seconds: number;
+  frequency_label?: string;
+  last_updated_at?: number;
+  last_updated_by?: string;
 }

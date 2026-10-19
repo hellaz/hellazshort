@@ -17,6 +17,7 @@ import {
   Sliders,
   Sparkles,
   DollarSign,
+  Plus,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   userRole?: string;
+  onCreateLinkClick?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -33,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onToggle,
   userRole,
+  onCreateLinkClick,
 }) => {
   const [analyticsOpen, setAnalyticsOpen] = useState(
     currentPage.startsWith('analytics')
@@ -66,6 +69,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+        {/* Quick Add Link */}
+        {onCreateLinkClick && (
+          <div className="mb-2">
+            <button
+              onClick={onCreateLinkClick}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs shadow-indigo-600/30 transition-all cursor-pointer`}
+              title="Add Link"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              {isOpen && <span>Add Link</span>}
+            </button>
+          </div>
+        )}
+
         {/* Dashboard */}
         <button
           onClick={() => onNavigate('dashboard')}
@@ -251,28 +268,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 Security & 2FA
               </button>
-              <button
-                onClick={() => onNavigate('settings-status-check')}
-                className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                  isCurrent('settings-status-check')
-                    ? 'bg-indigo-600/30 text-indigo-300'
-                    : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Status Check Config
-              </button>
-              <button
-                onClick={() => onNavigate('settings-default-page')}
-                className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                  isCurrent('settings-default-page')
-                    ? 'bg-indigo-600/30 text-indigo-300'
-                    : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Default Root Page
-              </button>
               {(userRole === 'owner' || userRole === 'admin') && (
                 <>
+                  <button
+                    onClick={() => onNavigate('settings-status-check')}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+                      isCurrent('settings-status-check')
+                        ? 'bg-indigo-600/30 text-indigo-300'
+                        : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Status Check Config
+                  </button>
+                  <button
+                    onClick={() => onNavigate('settings-captcha')}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+                      isCurrent('settings-captcha')
+                        ? 'bg-indigo-600/30 text-indigo-300'
+                        : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Captcha & Safety Filters
+                  </button>
+                  <button
+                    onClick={() => onNavigate('settings-default-page')}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+                      isCurrent('settings-default-page')
+                        ? 'bg-indigo-600/30 text-indigo-300'
+                        : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Default Root Page
+                  </button>
                   <button
                     onClick={() => onNavigate('settings-users')}
                     className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${

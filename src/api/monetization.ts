@@ -88,11 +88,37 @@ monetizationRouter.get('/overview', authMiddleware, async (c) => {
     apiRequestsCount = 0;
   }
 
+  // Fetch user link creation quota & credits
+  let userLinksCount = 0;
+  try {
+    const linkCountRow = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM links WHERE created_by = ? AND status != 'deleted'`
+    )
+      .bind(user.id)
+      .first<{ count: number }>();
+    userLinksCount = linkCountRow?.count || 0;
+  } catch {
+    userLinksCount = 0;
+  }
+
+  const isUnlimited = user.role === 'owner' || user.role === 'admin';
+  const freeBaseLimit = 10;
+  const totalLimit = isUnlimited ? 999999 : freeBaseLimit + bonusLinksEarned;
+  const remainingLinks = isUnlimited ? 999999 : Math.max(0, totalLimit - userLinksCount);
+
   return c.json({
     success: true,
     data: {
       total_clicks: totalClicks,
       estimated_earnings: Number(estimatedEarnings.toFixed(2)),
+      quota: {
+        free_limit: freeBaseLimit,
+        bonus_credits: bonusLinksEarned,
+        total_limit: totalLimit,
+        used_links: userLinksCount,
+        remaining_links: remainingLinks,
+        is_unlimited: isUnlimited,
+      },
       referrals: {
         total_referred: referralCount,
         bonus_links_earned: bonusLinksEarned,
@@ -106,6 +132,66 @@ monetizationRouter.get('/overview', authMiddleware, async (c) => {
         tier_name: user.role === 'owner' || user.role === 'admin' ? 'Enterprise' : 'Pro Developer',
       },
     },
+  });
+});
+
+// Claim Referral Code / Redeem Credit
+monetizationRouter.post('/referrals/claim', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  const body = await c.req.json().catch(() => ({}));
+  const referralCode = (body.referral_code || '').trim();
+
+  if (!referralCode) {
+    throw new HTTPException(400, { message: 'Referral username or code is required' });
+  }
+
+  const referrer = await c.env.DB.prepare(
+    `SELECT id, username FROM users WHERE username = ? OR id = ?`
+  ).bind(referralCode, referralCode).first<{ id: string; username: string }>();
+
+  if (!referrer) {
+    throw new HTTPException(404, { message: 'Referral user not found' });
+  }
+
+  if (referrer.id === user.id) {
+    throw new HTTPException(400, { message: 'You cannot use your own referral code' });
+  }
+
+  const existing = await c.env.DB.prepare(
+    `SELECT id FROM referrals WHERE referrer_user_id = ? AND referred_user_id = ?`
+  ).bind(referrer.id, user.id).first<any>();
+
+  if (existing) {
+    throw new HTTPException(409, { message: 'Referral bonus already awarded between these accounts' });
+  }
+
+  const id = generateId();
+  const bonus = 50;
+  await c.env.DB.prepare(
+    `INSERT INTO referrals (id, referrer_user_id, referred_user_id, bonus_links_granted, created_at) VALUES (?, ?, ?, ?, ?)`
+  ).bind(id, referrer.id, user.id, bonus, Date.now()).run();
+
+  return c.json({
+    success: true,
+    message: `Referral applied! +${bonus} free link credits granted to referrer @${referrer.username || referrer.id}.`,
+  });
+});
+
+// Grant Demo / Test Referral Credits (adds +50 credits to user account)
+monetizationRouter.post('/credits/grant', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  const body = await c.req.json().catch(() => ({}));
+  const amount = Number(body.amount) || 50;
+  const targetUserId = (user.role === 'owner' || user.role === 'admin') && body.user_id ? body.user_id : user.id;
+
+  const id = generateId();
+  await c.env.DB.prepare(
+    `INSERT INTO referrals (id, referrer_user_id, referred_user_id, bonus_links_granted, created_at) VALUES (?, ?, ?, ?, ?)`
+  ).bind(id, targetUserId, 'bonus_' + generateId().slice(0, 8), amount, Date.now()).run();
+
+  return c.json({
+    success: true,
+    message: `+${amount} link creation credits successfully added to account!`,
   });
 });
 

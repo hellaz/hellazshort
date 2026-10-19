@@ -64,13 +64,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             <ChevronDown className="w-4 h-4 text-slate-500 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
           </div>
 
-          {/* Quick Create Link */}
+          {/* Quick Add Link */}
           <button
             onClick={onCreateLinkClick}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium shadow-xs shadow-indigo-600/30 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-medium shadow-xs shadow-indigo-600/30 transition-all cursor-pointer"
+            title="Add Link"
           >
             <Plus className="w-4 h-4" />
-            <span>Create Link</span>
+            <span className="hidden xs:inline">Add Link</span>
+            <span className="xs:hidden">Add</span>
           </button>
 
           {/* Theme Toggle */}

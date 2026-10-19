@@ -17,6 +17,7 @@ import {
   UserCheck,
   Trash2,
   RefreshCw,
+  Activity,
   Plus,
   X,
   Eye,
@@ -77,12 +78,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [blockedDomainsInput, setBlockedDomainsInput] = useState('');
   const [captchaSaving, setCaptchaSaving] = useState(false);
 
+  // Status Check Configuration State
+  const [statusCheckEnabled, setStatusCheckEnabled] = useState(true);
+  const [statusCheckFrequencyValue, setStatusCheckFrequencyValue] = useState(1);
+  const [statusCheckFrequencyUnit, setStatusCheckFrequencyUnit] = useState<'days' | 'weeks'>('days');
+  const [statusCheckTop100Daily, setStatusCheckTop100Daily] = useState(false);
+  const [statusCheckBatchSize, setStatusCheckBatchSize] = useState(100);
+  const [statusCheckLabel, setStatusCheckLabel] = useState('Every 1 Day');
+  const [statusCheckLastUpdated, setStatusCheckLastUpdated] = useState<number | null>(null);
+  const [statusCheckSaving, setStatusCheckSaving] = useState(false);
+  const [statusCheckTesting, setStatusCheckTesting] = useState(false);
+  const [statusCheckTestResult, setStatusCheckTestResult] = useState<string | null>(null);
+
   useEffect(() => {
     setActiveTab(subPage);
   }, [subPage]);
 
   // Load Settings on mount
   useEffect(() => {
+    if (activeTab === 'status-check' && (user?.role === 'owner' || user?.role === 'admin')) {
+      fetchStatusCheckSettings();
+    }
+
     if (activeTab === 'default-page' || activeTab === 'root-page') {
       apiRequest('settings/root-page').then((res) => {
         if (res.success && res.data) {
@@ -113,6 +130,80 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       fetchAuditLogs();
     }
   }, [activeTab]);
+
+  const fetchStatusCheckSettings = async () => {
+    try {
+      const res = await apiRequest('settings/status-check-frequency');
+      if (res.success && res.data) {
+        setStatusCheckEnabled(res.data.enabled !== false);
+        if (res.data.frequency) {
+          setStatusCheckFrequencyValue(res.data.frequency.value || 1);
+          setStatusCheckFrequencyUnit(res.data.frequency.unit || 'days');
+        }
+        setStatusCheckTop100Daily(Boolean(res.data.check_top_100_daily));
+        setStatusCheckBatchSize(res.data.batch_size || 100);
+        setStatusCheckLabel(res.data.frequency_label || 'Every 1 Day');
+        setStatusCheckLastUpdated(res.data.last_updated_at || null);
+      }
+    } catch {
+      // Ignored
+    }
+  };
+
+  const handleSaveStatusCheck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusCheckSaving(true);
+    try {
+      const res = await apiRequest('settings/status-check-frequency', {
+        method: 'PUT',
+        body: JSON.stringify({
+          frequency: {
+            value: Number(statusCheckFrequencyValue) || 1,
+            unit: statusCheckFrequencyUnit,
+          },
+          enabled: statusCheckEnabled,
+          check_top_100_daily: statusCheckTop100Daily,
+          batch_size: Number(statusCheckBatchSize) || 100,
+        }),
+      });
+      if (res.success) {
+        showToast('Status check settings updated successfully!', 'success');
+        if (res.data?.frequency_label) {
+          setStatusCheckLabel(res.data.frequency_label);
+        }
+      } else {
+        showToast(res.error || 'Failed to update status check settings', 'error');
+      }
+    } catch {
+      showToast('Network error saving status check settings', 'error');
+    } finally {
+      setStatusCheckSaving(false);
+    }
+  };
+
+  const handleRunManualStatusCheck = async () => {
+    setStatusCheckTesting(true);
+    setStatusCheckTestResult(null);
+    try {
+      const res = await apiRequest('links/check-status', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (res.success) {
+        const checkedCount = res.data?.checked || 0;
+        showToast(`Health check complete! Verified ${checkedCount} link(s).`, 'success');
+        setStatusCheckTestResult(`Verified ${checkedCount} link(s). Any dead or broken links are flagged on the Link Monitor.`);
+      } else {
+        showToast(res.error || 'Failed to run status check', 'error');
+        setStatusCheckTestResult(`Error: ${res.error || 'Failed to execute status check'}`);
+      }
+    } catch {
+      showToast('Network error triggering status check', 'error');
+      setStatusCheckTestResult('Network error while running status check');
+    } finally {
+      setStatusCheckTesting(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setUsersLoading(true);
@@ -314,10 +405,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {[
           { id: 'account', label: 'Account Information', icon: UserCheck },
           { id: 'security', label: 'Security & 2FA', icon: Shield },
-          { id: 'default-page', label: 'Default Root Page', icon: Sliders },
-          { id: 'captcha', label: 'Captcha & Safety Filters', icon: Shield },
           ...(user?.role === 'owner' || user?.role === 'admin'
             ? [
+                { id: 'status-check', label: 'Status Check Config', icon: Activity },
+                { id: 'captcha', label: 'Captcha & Safety Filters', icon: Shield },
+                { id: 'default-page', label: 'Default Root Page', icon: Sliders },
                 { id: 'users', label: 'User Management', icon: Users },
                 { id: 'audit', label: 'Audit Log', icon: FileText },
               ]
@@ -606,6 +698,202 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
+      {/* TAB: STATUS CHECK CONFIG */}
+      {activeTab === 'status-check' && (user?.role === 'owner' || user?.role === 'admin') && (
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <Activity className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>Automated Link Health &amp; Status Monitor Configuration</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Configure background worker tasks that automatically ping shortened link destinations to detect 404s, timeouts, and broken URLs.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                  statusCheckEnabled
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    statusCheckEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                  }`}
+                />
+                {statusCheckEnabled ? 'Monitoring Active' : 'Monitoring Paused'}
+              </span>
+            </div>
+          </div>
+
+          {/* Test Check Banner */}
+          {statusCheckTestResult && (
+            <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-xs text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span>{statusCheckTestResult}</span>
+              </div>
+              <button
+                onClick={() => setStatusCheckTestResult(null)}
+                className="text-indigo-400 hover:text-indigo-200 text-xs font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveStatusCheck} className="space-y-5 text-xs">
+            {/* Enable switch */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/80">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={statusCheckEnabled}
+                  onChange={(e) => setStatusCheckEnabled(e.target.checked)}
+                  className="rounded text-indigo-600 w-4 h-4"
+                />
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-white block text-sm">
+                    Enable Automatic Background Health Verification
+                  </span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    When active, links will be queued and tested automatically according to the frequency schedule below.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Frequency selection */}
+            <div className="space-y-3">
+              <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                Check Frequency Schedule
+              </label>
+
+              {/* Quick Preset Buttons */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                  { label: 'Every 1 Day', val: 1, unit: 'days' as const },
+                  { label: 'Every 3 Days', val: 3, unit: 'days' as const },
+                  { label: 'Every 1 Week', val: 1, unit: 'weeks' as const },
+                  { label: 'Every 2 Weeks', val: 2, unit: 'weeks' as const },
+                  { label: 'Every 30 Days', val: 30, unit: 'days' as const },
+                ].map((preset) => {
+                  const isSelected =
+                    statusCheckFrequencyValue === preset.val &&
+                    statusCheckFrequencyUnit === preset.unit;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setStatusCheckFrequencyValue(preset.val);
+                        setStatusCheckFrequencyUnit(preset.unit);
+                      }}
+                      className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold ring-1 ring-indigo-600'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Interval */}
+              <div className="flex items-center gap-3 pt-1">
+                <span className="text-slate-500 text-xs">Or custom interval:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={statusCheckFrequencyValue}
+                  onChange={(e) => setStatusCheckFrequencyValue(parseInt(e.target.value, 10) || 1)}
+                  className="w-20 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-center font-mono font-bold"
+                />
+                <select
+                  value={statusCheckFrequencyUnit}
+                  onChange={(e) => setStatusCheckFrequencyUnit(e.target.value as any)}
+                  className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium"
+                >
+                  <option value="days">Days</option>
+                  <option value="weeks">Weeks</option>
+                </select>
+                <span className="text-slate-400 text-xs">
+                  (Currently: <strong className="text-indigo-500">{statusCheckLabel}</strong>)
+                </span>
+              </div>
+            </div>
+
+            {/* Check Top 100 Daily */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/80">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={statusCheckTop100Daily}
+                  onChange={(e) => setStatusCheckTop100Daily(e.target.checked)}
+                  className="rounded text-indigo-600 w-4 h-4"
+                />
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-white block">
+                    Daily High-Traffic Priority Pass
+                  </span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Regardless of standard frequency, always test the top 100 most clicked links daily to protect active marketing campaigns.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Batch Size */}
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Batch Size per Execution Run (10 – 1000 links)
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={10}
+                  max={1000}
+                  step={10}
+                  value={statusCheckBatchSize}
+                  onChange={(e) => setStatusCheckBatchSize(parseInt(e.target.value, 10) || 100)}
+                  className="w-32 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono font-bold"
+                />
+                <span className="text-[11px] text-slate-500">
+                  Default: 100 links per run. Limits concurrent outbound requests to stay well within cloud edge timeouts.
+                </span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={statusCheckSaving}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+              >
+                {statusCheckSaving ? 'Saving Config...' : 'Save Status Check Config'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRunManualStatusCheck}
+                disabled={statusCheckTesting}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl border border-slate-300 dark:border-slate-600 cursor-pointer transition-colors flex items-center gap-2"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${statusCheckTesting ? 'animate-spin' : ''}`} />
+                <span>{statusCheckTesting ? 'Executing Batch Check...' : 'Run Health Check Now'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* TAB: CAPTCHA & SAFETY FILTERS */}
       {activeTab === 'captcha' && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
@@ -851,6 +1139,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       )}
+      {/* ACCESS DENIED FALLBACK FOR REGULAR USERS VISITING ADMIN TABS */}
+      {['status-check', 'captcha', 'default-page', 'users', 'audit'].includes(activeTab) &&
+        user?.role !== 'owner' &&
+        user?.role !== 'admin' && (
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
+            <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/50 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+              <Shield className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Administrator Access Required</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              This system configuration panel is restricted to platform administrators and owners. Regular users can manage personal profile and credentials from the Account Information tab.
+            </p>
+            <button
+              onClick={() => setActiveTab('account')}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl cursor-pointer"
+            >
+              Return to Account Information
+            </button>
+          </div>
+        )}
     </div>
   );
 };
