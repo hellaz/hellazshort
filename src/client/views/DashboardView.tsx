@@ -28,6 +28,8 @@ import {
   ChevronUp,
   X,
   AlertTriangle,
+  ShieldCheck,
+  Timer,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -123,6 +125,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [splashTitle, setSplashTitle] = useState('Sponsored Destination');
   const [splashMessage, setSplashMessage] = useState('You will be redirected to your destination shortly.');
   const [splashBannerUrl, setSplashBannerUrl] = useState('');
+  const [splashButtonText, setSplashButtonText] = useState('Proceed to Destination');
   const [deepLinkEnabled, setDeepLinkEnabled] = useState(false);
   const [deepIosUrl, setDeepIosUrl] = useState('');
   const [deepAndroidUrl, setDeepAndroidUrl] = useState('');

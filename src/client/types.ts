@@ -38,6 +38,7 @@ export interface Link {
   is_cloaked?: boolean;
   category?: string | null;
   tags?: string[];
+  metadata?: any;
   created_at: number;
   updated_at: number;
   // Redirect overrides

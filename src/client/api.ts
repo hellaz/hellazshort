@@ -21,7 +21,7 @@ export async function fetchCsrfToken(): Promise<string> {
   try {
     const res = await fetch('/api/v1/auth/csrf');
     if (res.ok) {
-      const data = await res.json();
+      const data: any = await res.json();
       if (data?.data?.csrfToken) {
         cachedCsrfToken = data.data.csrfToken;
         return cachedCsrfToken;
@@ -67,7 +67,7 @@ export async function apiRequest<T = any>(
     });
 
     const isJson = response.headers.get('content-type')?.includes('application/json');
-    const data = isJson ? await response.json() : await response.text();
+    const data: any = isJson ? await response.json() : await response.text();
 
     if (!response.ok) {
       const errorMsg = data?.error?.message || data?.message || response.statusText || 'An error occurred';

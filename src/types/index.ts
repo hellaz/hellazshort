@@ -38,6 +38,7 @@ export interface Domain {
   id: string;
   cloudflare_account_id: string;
   domain_name: string;
+  normalized_domain_name?: string;
   routing_path: string; // Kept for backward compatibility
   default_redirect_code: number;
   status: 'active' | 'inactive' | 'pending';

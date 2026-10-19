@@ -30,7 +30,7 @@ export interface Session {
   cached_at?: number; // Unix timestamp when domain access was cached
 }
 
-export async function createSession(env: Env, user: { id: string; username?: string; email?: string; role: string }, refreshToken?: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function createSession(env: Env, user: { id: string; username?: string; email?: string; role: string; global_access?: boolean }, refreshToken?: string): Promise<{ accessToken: string; refreshToken: string }> {
   const accessToken = generateSessionToken();
   const refreshTokenValue = refreshToken || generateSessionToken();
   
@@ -54,13 +54,13 @@ export async function createSession(env: Env, user: { id: string; username?: str
 }
 
 // Legacy function for backwards compatibility
-export async function createSessionLegacy(env: Env, user: { id: string; username?: string; email?: string; role: string }): Promise<string> {
+export async function createSessionLegacy(env: Env, user: { id: string; username?: string; email?: string; role: string; global_access?: boolean }): Promise<string> {
   const { accessToken } = await createSession(env, user);
   return accessToken;
 }
 
 // Create session with custom expiration (for testing)
-export async function createSessionWithExpiry(env: Env, user: { id: string; username?: string; email?: string; role: string }, expiresIn: number): Promise<{ accessToken: string; refreshToken: string }> {
+export async function createSessionWithExpiry(env: Env, user: { id: string; username?: string; email?: string; role: string; global_access?: boolean }, expiresIn: number): Promise<{ accessToken: string; refreshToken: string }> {
   const accessToken = generateSessionToken();
   const refreshTokenValue = generateSessionToken();
   

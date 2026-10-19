@@ -54,7 +54,7 @@ authRouter.post('/social/:provider', async (c) => {
 
   await updateLastLogin(c.env, user.id);
 
-  const token = await createSession(c.env, {
+  const { accessToken: token } = await createSession(c.env, {
     id: user.id,
     username: user.username || name,
     email: user.email,

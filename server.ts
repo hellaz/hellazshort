@@ -271,8 +271,12 @@ function parseCookies(cookieHeader?: string): Record<string, string> {
 // 6. Setup Express App
 async function startServer() {
   const app = express();
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = 3000;
+  const envPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   const hostname = '0.0.0.0';
+
+  // Always serve public assets statically
+  app.use(express.static(resolve('public')));
 
   // Hono Request Listener for API & Workers
   const honoListener = getRequestListener((req: Request) => {
@@ -584,7 +588,7 @@ async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
   if (!isProd) {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -606,7 +610,14 @@ async function startServer() {
     console.log(`👤 Admin User:  ${firstUserUsername} (Password: ${firstUserPassword})`);
     console.log(`======================================================\n`);
   });
+
+  if (envPort !== port) {
+    app.listen(envPort, hostname, () => {
+      console.log(`📍 Also listening on secondary port: http://${hostname}:${envPort}`);
+    });
+  }
 }
+
 
 startServer().catch((err) => {
   console.error('Fatal server start error:', err);

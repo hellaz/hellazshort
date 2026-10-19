@@ -33,7 +33,7 @@ export const PasswordProtectInterstitial: React.FC<PasswordProtectInterstitialPr
         body: JSON.stringify({ password }),
       });
 
-      const data = await res.json();
+      const data: any = await res.json();
       if (res.ok && data?.destination_url) {
         onSuccess(data.destination_url);
       } else {
