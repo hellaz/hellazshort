@@ -59,8 +59,8 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
         title: 'Targeting & Dynamic Redirects',
         items: [
           'Country / Geo Redirects: Direct visitors from specific countries (e.g. US, DE, JP) to localized destination URLs.',
-          'Device & OS Redirects: Route Mobile (iOS/Android) vs Desktop vs Tablet visitors to dedicated app stores or landing pages.',
-          'Language Redirects: Route visitors based on browser preferred language headers (e.g. fr, es, de).',
+          'Device & Mobile OS Routing: Route visitors by Device type (Desktop, Mobile, Tablet) or Mobile OS (iOS App Store vs Android Play Store) in one unified card.',
+          'Language-Based Routing: Route visitors based on browser preferred language headers (e.g. fr, es, de, ja).',
           'UTM Campaign Builder: Easily append utm_source, utm_medium, and utm_campaign query parameters directly in the creation modal.',
         ],
       },

@@ -1623,205 +1623,94 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 )}
               </div>
 
-              {/* Dynamic Redirects: City-Specific */}
+              {/* Unified Device & Mobile OS Routing */}
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={enableCityRedirects}
+                      checked={enableDeviceRedirects || enableOsRedirects}
                       onChange={(e) => {
-                        setEnableCityRedirects(e.target.checked);
-                        if (e.target.checked && cityRedirects.length === 0) {
-                          setCityRedirects([{ id: `city-${Date.now()}`, city_name: '', destination_url: '' }]);
-                        }
+                        setEnableDeviceRedirects(e.target.checked);
+                        setEnableOsRedirects(e.target.checked);
                       }}
                       className="rounded text-indigo-600 w-4 h-4"
                     />
                     <div>
                       <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Building className="w-3.5 h-3.5 text-indigo-500" />
-                        Enable City-Specific Redirects
+                        <Smartphone className="w-3.5 h-3.5 text-indigo-500" />
+                        Device &amp; Mobile OS Routing
                       </span>
                       <span className="text-[11px] text-slate-400 block">
-                        Redirect users to different URLs based on their city (max 20 cities)
+                        Route users based on device type (Desktop, Mobile, Tablet) or Mobile OS (iOS App Store vs Android Play Store)
                       </span>
                     </div>
                   </label>
-                  {enableCityRedirects && (
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {cityRedirects.length} / 20 cities
-                    </span>
-                  )}
                 </div>
 
-                {enableCityRedirects && (
+                {(enableDeviceRedirects || enableOsRedirects) && (
                   <div className="p-4 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-                    <p className="text-[11px] text-slate-500">
-                      Users from specified cities will be redirected to their specific URL. City names must match Cloudflare GeoIP format (e.g. Athens, London, New York).
-                    </p>
-
-                    {cityRedirects.map((city, idx) => (
-                      <div key={city.id} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="City (e.g. Athens, London)"
-                          value={city.city_name}
-                          onChange={(e) => {
-                            const updated = [...cityRedirects];
-                            updated[idx].city_name = e.target.value;
-                            setCityRedirects(updated);
-                          }}
-                          className="w-36 sm:w-44 px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Desktop URL (optional)
+                        </label>
                         <input
                           type="url"
-                          placeholder="https://city-specific.example.com"
-                          value={city.destination_url}
-                          onChange={(e) => {
-                            const updated = [...cityRedirects];
-                            updated[idx].destination_url = e.target.value;
-                            setCityRedirects(updated);
-                          }}
-                          className="flex-1 px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                          placeholder="https://example.com/desktop"
+                          value={deviceDesktopUrl}
+                          onChange={(e) => setDeviceDesktopUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setCityRedirects(cityRedirects.filter((c) => c.id !== city.id))}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 rounded"
-                          title="Remove city"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
-                    ))}
-
-                    {cityRedirects.length < 20 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCityRedirects([...cityRedirects, { id: `city-${Date.now()}`, city_name: '', destination_url: '' }]);
-                        }}
-                        className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Add City
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Dynamic Redirects: Device-Specific */}
-              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={enableDeviceRedirects}
-                      onChange={(e) => setEnableDeviceRedirects(e.target.checked)}
-                      className="rounded text-indigo-600 w-4 h-4"
-                    />
-                    <div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Laptop className="w-3.5 h-3.5 text-indigo-500" />
-                        Enable Device-Specific Redirects
-                      </span>
-                      <span className="text-[11px] text-slate-400 block">
-                        Redirect users to different URLs based on device type (desktop, mobile, tablet)
-                      </span>
-                    </div>
-                  </label>
-                </div>
-
-                {enableDeviceRedirects && (
-                  <div className="p-4 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Desktop URL (optional)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://example.com/desktop"
-                        value={deviceDesktopUrl}
-                        onChange={(e) => setDeviceDesktopUrl(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Mobile URL (optional)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://example.com/mobile"
-                        value={deviceMobileUrl}
-                        onChange={(e) => setDeviceMobileUrl(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Tablet URL (optional)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://example.com/tablet"
-                        value={deviceTabletUrl}
-                        onChange={(e) => setDeviceTabletUrl(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Dynamic Redirects: OS-Specific */}
-              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={enableOsRedirects}
-                      onChange={(e) => setEnableOsRedirects(e.target.checked)}
-                      className="rounded text-indigo-600 w-4 h-4"
-                    />
-                    <div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Smartphone className="w-3.5 h-3.5 text-indigo-500" />
-                        Enable OS-Specific Redirects
-                      </span>
-                      <span className="text-[11px] text-slate-400 block">
-                        Redirect users to different URLs based on operating system (Android / iOS)
-                      </span>
-                    </div>
-                  </label>
-                </div>
-
-                {enableOsRedirects && (
-                  <div className="p-4 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Android URL (optional)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://play.google.com/store/apps/..."
-                        value={osAndroidUrl}
-                        onChange={(e) => setOsAndroidUrl(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        iOS URL (optional)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://apps.apple.com/app/..."
-                        value={osIosUrl}
-                        onChange={(e) => setOsIosUrl(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                      />
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Mobile (Generic) URL (optional)
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/mobile"
+                          value={deviceMobileUrl}
+                          onChange={(e) => setDeviceMobileUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          iOS App Store URL (optional)
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://apps.apple.com/app/..."
+                          value={osIosUrl}
+                          onChange={(e) => setOsIosUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Android Play Store URL (optional)
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://play.google.com/store/apps/..."
+                          value={osAndroidUrl}
+                          onChange={(e) => setOsAndroidUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Tablet URL (optional)
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/tablet"
+                          value={deviceTabletUrl}
+                          onChange={(e) => setDeviceTabletUrl(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
