@@ -639,7 +639,10 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
 
   // Validate route if explicitly provided
   if (validated.route) {
-    if (!domain.routes || !domain.routes.includes(validated.route)) {
+    const validRoutes = (domain.routes && domain.routes.length > 0)
+      ? domain.routes
+      : [domain.routing_path || '/*'];
+    if (!validRoutes.includes(validated.route)) {
       throw new HTTPException(400, { message: 'Invalid route for this domain' });
     }
   }
@@ -879,7 +882,10 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
   if (validated.route !== undefined) {
     const domain = await getDomainById(c.env, existingLink.domain_id);
     if (domain) {
-      if (!domain.routes || !domain.routes.includes(validated.route)) {
+      const validRoutes = (domain.routes && domain.routes.length > 0)
+        ? domain.routes
+        : [domain.routing_path || '/*'];
+      if (!validRoutes.includes(validated.route)) {
         throw new HTTPException(400, { message: 'Invalid route for this domain' });
       }
       const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
@@ -1120,33 +1126,55 @@ linksRouter.post('/check-status', authMiddleware, async (c) => {
     throw new HTTPException(401, { message: 'Authentication required' });
   }
 
-  // Only admin/owner/editor can trigger checks
-  if (!['admin', 'owner', 'editor'].includes(user.role)) {
-    throw new HTTPException(403, { message: 'Insufficient permissions' });
-  }
-
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => ({}));
   const linkIds = body.link_ids as string[] | undefined;
 
-  const { processScheduledStatusCheck, checkLinksBatch } = await import('../services/status-check');
-  const { getLinksForStatusCheck, getLinkById } = await import('../db/links');
+  const { checkLinksBatch } = await import('../services/status-check');
   const { getStatusCheckFrequencyOrDefault } = await import('../db/settings');
   const { getFrequencyInMs } = await import('../types');
 
   const settings = await getStatusCheckFrequencyOrDefault(c.env);
   const frequencyMs = getFrequencyInMs(settings.frequency);
 
+  const isGlobalAdmin = ['admin', 'owner', 'editor'].includes(user.role) || user.global_access;
+
   let links: Link[];
   if (linkIds && linkIds.length > 0) {
     // Check specific links
     const placeholders = linkIds.map(() => '?').join(',');
-    const result = await c.env.DB.prepare(
-      `SELECT * FROM links WHERE id IN (${placeholders}) AND status != 'deleted'`
-    ).bind(...linkIds).all<Link>();
-    links = result.results || [];
+    if (isGlobalAdmin) {
+      const result = await c.env.DB.prepare(
+        `SELECT * FROM links WHERE id IN (${placeholders}) AND status != 'deleted'`
+      ).bind(...linkIds).all<Link>();
+      links = result.results || [];
+    } else {
+      const result = await c.env.DB.prepare(
+        `SELECT * FROM links WHERE id IN (${placeholders}) AND status != 'deleted' AND created_by = ?`
+      ).bind(...linkIds, user.id).all<Link>();
+      links = result.results || [];
+    }
   } else {
-    // Check all links (use batch_size from settings)
-    links = await getLinksForStatusCheck(c.env, settings.batch_size);
+    // Manual trigger: check all non-deleted links up to batch_size
+    const batchLimit = settings.batch_size || 100;
+    if (isGlobalAdmin) {
+      const result = await c.env.DB.prepare(
+        `SELECT * FROM links 
+         WHERE status != 'deleted' 
+         ORDER BY CASE WHEN last_status_check_at IS NULL THEN 0 ELSE 1 END, 
+                  last_status_check_at ASC 
+         LIMIT ?`
+      ).bind(batchLimit).all<Link>();
+      links = result.results || [];
+    } else {
+      const result = await c.env.DB.prepare(
+        `SELECT * FROM links 
+         WHERE status != 'deleted' AND created_by = ? 
+         ORDER BY CASE WHEN last_status_check_at IS NULL THEN 0 ELSE 1 END, 
+                  last_status_check_at ASC 
+         LIMIT ?`
+      ).bind(user.id, batchLimit).all<Link>();
+      links = result.results || [];
+    }
   }
 
   if (links.length === 0) {

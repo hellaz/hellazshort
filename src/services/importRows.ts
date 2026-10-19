@@ -293,8 +293,13 @@ export async function importRows(
   };
 
   const checkRoute = (route: string | undefined) => {
-    if (route && (!domain.routes || !domain.routes.includes(route))) {
-      throw new Error(`Invalid route: ${route}`);
+    if (route) {
+      const validRoutes = (domain.routes && domain.routes.length > 0)
+        ? domain.routes
+        : [domain.routing_path || '/*'];
+      if (!validRoutes.includes(route)) {
+        throw new Error(`Invalid route: ${route}`);
+      }
     }
   };
 

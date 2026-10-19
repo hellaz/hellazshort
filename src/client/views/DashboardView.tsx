@@ -145,7 +145,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [splashTitle, setSplashTitle] = useState('Sponsored Destination');
   const [splashMessage, setSplashMessage] = useState('You will be redirected to your destination shortly.');
   const [splashBannerUrl, setSplashBannerUrl] = useState('');
+  const [splashBannerLink, setSplashBannerLink] = useState('');
+  const [splashAdCode, setSplashAdCode] = useState('');
   const [splashButtonText, setSplashButtonText] = useState('Proceed to Destination');
+
+  // Modal & Category Helper States
+  const [isSavingLink, setIsSavingLink] = useState(false);
+  const [showAdvancedRoutes, setShowAdvancedRoutes] = useState(false);
+  const [showQuickCategoryInput, setShowQuickCategoryInput] = useState(false);
+  const [quickCategoryName, setQuickCategoryName] = useState('');
 
   // Mobile Deep Linking
   const [deepLinkEnabled, setDeepLinkEnabled] = useState(false);
@@ -532,173 +540,193 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return;
     }
 
-    let finalDest = formDestination.trim();
-    if (!finalDest.startsWith('http://') && !finalDest.startsWith('https://')) {
-      finalDest = `https://${finalDest}`;
-    }
-
-    // Apply UTM params
-    if (utmSource || utmMedium || utmCampaign) {
-      try {
-        const u = new URL(finalDest);
-        if (utmSource) u.searchParams.set('utm_source', utmSource);
-        if (utmMedium) u.searchParams.set('utm_medium', utmMedium);
-        if (utmCampaign) u.searchParams.set('utm_campaign', utmCampaign);
-        if (utmTerm) u.searchParams.set('utm_term', utmTerm);
-        if (utmContent) u.searchParams.set('utm_content', utmContent);
-        finalDest = u.toString();
-      } catch {
-        // ignore
+    setIsSavingLink(true);
+    try {
+      let finalDest = formDestination.trim();
+      if (!finalDest.startsWith('http://') && !finalDest.startsWith('https://')) {
+        finalDest = `https://${finalDest}`;
       }
-    }
 
-    const cleanSlug = formSlug ? formSlug.trim().replace(/^\/+|\/+$/g, '') : undefined;
+      // Apply UTM params
+      if (utmSource || utmMedium || utmCampaign) {
+        try {
+          const u = new URL(finalDest);
+          if (utmSource) u.searchParams.set('utm_source', utmSource);
+          if (utmMedium) u.searchParams.set('utm_medium', utmMedium);
+          if (utmCampaign) u.searchParams.set('utm_campaign', utmCampaign);
+          if (utmTerm) u.searchParams.set('utm_term', utmTerm);
+          if (utmContent) u.searchParams.set('utm_content', utmContent);
+          finalDest = u.toString();
+        } catch {
+          // ignore
+        }
+      }
 
-    // Metadata composition
-    const metadataObj: any = {
-      ...(editingLink?.metadata ? (typeof editingLink.metadata === 'string' ? JSON.parse(editingLink.metadata) : editingLink.metadata) : {}),
-    };
+      // Effective Domain ID fallback
+      const availableDomains = domains.filter((d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost');
+      const effectiveDomainId = formDomainId || currentDomainId || availableDomains[0]?.id;
 
-    if (splashEnabled) {
-      metadataObj.splash = {
-        enabled: true,
-        countdown: Number(splashCountdown) || 5,
-        title: splashTitle.trim() || 'Sponsored Destination',
-        message: splashMessage.trim() || '',
-        banner_url: splashBannerUrl.trim() || undefined,
-        button_text: splashButtonText.trim() || 'Proceed to Destination',
+      if (!effectiveDomainId) {
+        showToast('Please select or configure a domain before creating a link.', 'error');
+        setIsSavingLink(false);
+        return;
+      }
+
+      const cleanSlug = formSlug ? formSlug.trim().replace(/^\/+|\/+$/g, '') : undefined;
+
+      // Metadata composition
+      const metadataObj: any = {
+        ...(editingLink?.metadata ? (typeof editingLink.metadata === 'string' ? JSON.parse(editingLink.metadata) : editingLink.metadata) : {}),
       };
-    } else {
-      delete metadataObj.splash;
-    }
 
-    if (formMaxClicks) {
-      metadataObj.max_clicks = Number(formMaxClicks);
-    } else {
-      delete metadataObj.max_clicks;
-    }
+      if (splashEnabled) {
+        metadataObj.splash = {
+          enabled: true,
+          countdown: Number(splashCountdown) || 5,
+          title: splashTitle.trim() || 'Sponsored Destination',
+          message: splashMessage.trim() || '',
+          banner_url: splashBannerUrl.trim() || undefined,
+          banner_link: splashBannerLink.trim() || undefined,
+          ad_code: splashAdCode.trim() || undefined,
+          button_text: splashButtonText.trim() || 'Proceed to Destination',
+        };
+      } else {
+        delete metadataObj.splash;
+      }
 
-    if (targetLanguage && targetLanguageUrl) {
-      metadataObj.language_redirects = {
-        [targetLanguage.trim().toLowerCase()]: targetLanguageUrl.trim(),
+      if (formMaxClicks) {
+        metadataObj.max_clicks = Number(formMaxClicks);
+      } else {
+        delete metadataObj.max_clicks;
+      }
+
+      if (targetLanguage && targetLanguageUrl) {
+        metadataObj.language_redirects = {
+          [targetLanguage.trim().toLowerCase()]: targetLanguageUrl.trim(),
+        };
+      } else {
+        delete metadataObj.language_redirects;
+      }
+
+      if (deepLinkEnabled) {
+        metadataObj.deep_link = {
+          enabled: true,
+          ios_url: deepIosUrl.trim() || undefined,
+          android_url: deepAndroidUrl.trim() || undefined,
+          desktop_url: deepDesktopUrl.trim() || undefined,
+        };
+      } else {
+        delete metadataObj.deep_link;
+      }
+
+      // Dynamic redirects: Country
+      const geo_redirects_payload = enableGeoRedirects
+        ? geoRedirects
+            .filter((g) => g.country_code.trim() && g.destination_url.trim())
+            .map((g) => ({
+              country_code: g.country_code.trim().toUpperCase(),
+              destination_url: g.destination_url.trim().startsWith('http') ? g.destination_url.trim() : `https://${g.destination_url.trim()}`,
+            }))
+        : [];
+
+      // Dynamic redirects: City
+      const city_redirects_payload = enableCityRedirects
+        ? cityRedirects
+            .filter((c) => c.city_name.trim() && c.destination_url.trim())
+            .map((c) => ({
+              city_name: c.city_name.trim().toLowerCase(),
+              destination_url: c.destination_url.trim().startsWith('http') ? c.destination_url.trim() : `https://${c.destination_url.trim()}`,
+            }))
+        : [];
+
+      // Dynamic redirects: Device
+      const device_redirects_payload: Array<{ device_type: 'desktop' | 'mobile' | 'tablet'; destination_url: string }> = [];
+      if (enableDeviceRedirects) {
+        if (deviceDesktopUrl.trim()) {
+          const u = deviceDesktopUrl.trim().startsWith('http') ? deviceDesktopUrl.trim() : `https://${deviceDesktopUrl.trim()}`;
+          device_redirects_payload.push({ device_type: 'desktop', destination_url: u });
+        }
+        if (deviceMobileUrl.trim()) {
+          const u = deviceMobileUrl.trim().startsWith('http') ? deviceMobileUrl.trim() : `https://${deviceMobileUrl.trim()}`;
+          device_redirects_payload.push({ device_type: 'mobile', destination_url: u });
+        }
+        if (deviceTabletUrl.trim()) {
+          const u = deviceTabletUrl.trim().startsWith('http') ? deviceTabletUrl.trim() : `https://${deviceTabletUrl.trim()}`;
+          device_redirects_payload.push({ device_type: 'tablet', destination_url: u });
+        }
+      }
+
+      // Dynamic redirects: OS
+      const os_redirects_payload: Array<{ os: 'android' | 'ios'; destination_url: string }> = [];
+      if (enableOsRedirects) {
+        if (osAndroidUrl.trim()) {
+          const u = osAndroidUrl.trim().startsWith('http') ? osAndroidUrl.trim() : `https://${osAndroidUrl.trim()}`;
+          os_redirects_payload.push({ os: 'android', destination_url: u });
+        }
+        if (osIosUrl.trim()) {
+          const u = osIosUrl.trim().startsWith('http') ? osIosUrl.trim() : `https://${osIosUrl.trim()}`;
+          os_redirects_payload.push({ os: 'ios', destination_url: u });
+        }
+      }
+
+      const payload: any = {
+        domain_id: effectiveDomainId,
+        route: formRoute || '/*',
+        destination_url: finalDest,
+        slug: cleanSlug,
+        title: formTitle.trim() || undefined,
+        description: formDescription.trim() || undefined,
+        category_id: formCategoryId.trim() || undefined,
+        tags: formTags.length > 0 ? formTags : [],
+        redirect_code: Number(formRedirectCode) || 301,
+        password: formPassword.trim() || undefined,
+        is_cloaked: formIsCloaked,
+        expires_at: formExpiresAt ? new Date(formExpiresAt).getTime() : undefined,
+        metadata: metadataObj,
+        pixel_ids: selectedPixelIds,
+        geo_redirects: geo_redirects_payload,
+        city_redirects: city_redirects_payload,
+        os_redirects: os_redirects_payload,
+        device_redirects: device_redirects_payload,
       };
-    } else {
-      delete metadataObj.language_redirects;
-    }
 
-    if (deepLinkEnabled) {
-      metadataObj.deep_link = {
-        enabled: true,
-        ios_url: deepIosUrl.trim() || undefined,
-        android_url: deepAndroidUrl.trim() || undefined,
-        desktop_url: deepDesktopUrl.trim() || undefined,
-      };
-    } else {
-      delete metadataObj.deep_link;
-    }
-
-    // Dynamic redirects: Country
-    const geo_redirects_payload = enableGeoRedirects
-      ? geoRedirects
-          .filter((g) => g.country_code.trim() && g.destination_url.trim())
-          .map((g) => ({
-            country_code: g.country_code.trim().toUpperCase(),
-            destination_url: g.destination_url.trim().startsWith('http') ? g.destination_url.trim() : `https://${g.destination_url.trim()}`,
-          }))
-      : [];
-
-    // Dynamic redirects: City
-    const city_redirects_payload = enableCityRedirects
-      ? cityRedirects
-          .filter((c) => c.city_name.trim() && c.destination_url.trim())
-          .map((c) => ({
-            city_name: c.city_name.trim().toLowerCase(),
-            destination_url: c.destination_url.trim().startsWith('http') ? c.destination_url.trim() : `https://${c.destination_url.trim()}`,
-          }))
-      : [];
-
-    // Dynamic redirects: Device
-    const device_redirects_payload: Array<{ device_type: 'desktop' | 'mobile' | 'tablet'; destination_url: string }> = [];
-    if (enableDeviceRedirects) {
-      if (deviceDesktopUrl.trim()) {
-        const u = deviceDesktopUrl.trim().startsWith('http') ? deviceDesktopUrl.trim() : `https://${deviceDesktopUrl.trim()}`;
-        device_redirects_payload.push({ device_type: 'desktop', destination_url: u });
+      // OpenGraph meta
+      if (enableOgMeta && (ogTitle.trim() || ogDescription.trim() || ogImage.trim())) {
+        payload.og_meta = {
+          og_title: ogTitle.trim() || undefined,
+          og_description: ogDescription.trim() || undefined,
+          og_image: ogImage.trim() || undefined,
+          og_type: ogType,
+          twitter_card: twitterCard,
+        };
       }
-      if (deviceMobileUrl.trim()) {
-        const u = deviceMobileUrl.trim().startsWith('http') ? deviceMobileUrl.trim() : `https://${deviceMobileUrl.trim()}`;
-        device_redirects_payload.push({ device_type: 'mobile', destination_url: u });
+
+      let res;
+      if (editingLink) {
+        res = await apiRequest(`links/${editingLink.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        res = await apiRequest('links', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
       }
-      if (deviceTabletUrl.trim()) {
-        const u = deviceTabletUrl.trim().startsWith('http') ? deviceTabletUrl.trim() : `https://${deviceTabletUrl.trim()}`;
-        device_redirects_payload.push({ device_type: 'tablet', destination_url: u });
+
+      if (res.success) {
+        showToast(editingLink ? 'Link updated successfully' : 'Short link created!', 'success');
+        setIsEditModalOpen(false);
+        if (onCloseCreateModal) onCloseCreateModal();
+        fetchData();
+      } else {
+        const errorMsg = typeof res.error === 'string' ? res.error : (res.error?.message || res.message || 'Failed to save short link');
+        showToast(errorMsg, 'error');
       }
-    }
-
-    // Dynamic redirects: OS
-    const os_redirects_payload: Array<{ os: 'android' | 'ios'; destination_url: string }> = [];
-    if (enableOsRedirects) {
-      if (osAndroidUrl.trim()) {
-        const u = osAndroidUrl.trim().startsWith('http') ? osAndroidUrl.trim() : `https://${osAndroidUrl.trim()}`;
-        os_redirects_payload.push({ os: 'android', destination_url: u });
-      }
-      if (osIosUrl.trim()) {
-        const u = osIosUrl.trim().startsWith('http') ? osIosUrl.trim() : `https://${osIosUrl.trim()}`;
-        os_redirects_payload.push({ os: 'ios', destination_url: u });
-      }
-    }
-
-    const payload: any = {
-      domain_id: formDomainId,
-      route: formRoute || undefined,
-      destination_url: finalDest,
-      slug: cleanSlug,
-      title: formTitle.trim() || undefined,
-      description: formDescription.trim() || undefined,
-      category_id: formCategoryId.trim() || undefined,
-      tags: formTags.length > 0 ? formTags : [],
-      redirect_code: Number(formRedirectCode) || 301,
-      password: formPassword.trim() || undefined,
-      is_cloaked: formIsCloaked,
-      expires_at: formExpiresAt ? new Date(formExpiresAt).getTime() : undefined,
-      metadata: metadataObj,
-      pixel_ids: selectedPixelIds,
-      geo_redirects: geo_redirects_payload,
-      city_redirects: city_redirects_payload,
-      os_redirects: os_redirects_payload,
-      device_redirects: device_redirects_payload,
-    };
-
-    // OpenGraph meta
-    if (enableOgMeta && (ogTitle.trim() || ogDescription.trim() || ogImage.trim())) {
-      payload.og_meta = {
-        og_title: ogTitle.trim() || undefined,
-        og_description: ogDescription.trim() || undefined,
-        og_image: ogImage.trim() || undefined,
-        og_type: ogType,
-        twitter_card: twitterCard,
-      };
-    }
-
-    let res;
-    if (editingLink) {
-      res = await apiRequest(`links/${editingLink.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
-    } else {
-      res = await apiRequest('links', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    }
-
-    if (res.success) {
-      showToast(editingLink ? 'Link updated successfully' : 'Short link created!', 'success');
-      setIsEditModalOpen(false);
-      if (onCloseCreateModal) onCloseCreateModal();
-      fetchData();
-    } else {
-      showToast(res.error || res.message || 'Failed to save link', 'error');
+    } catch (err: any) {
+      showToast(err?.message || 'An unexpected error occurred while saving the link.', 'error');
+    } finally {
+      setIsSavingLink(false);
     }
   };
 
@@ -711,6 +739,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setDeletingLinkId(null);
     } else {
       showToast(res.error || 'Failed to delete link', 'error');
+    }
+  };
+
+  // Create Quick Category directly inside Modal
+  const handleCreateQuickCategory = async () => {
+    if (!quickCategoryName.trim()) return;
+    try {
+      const res = await apiRequest('categories', {
+        method: 'POST',
+        body: JSON.stringify({ name: quickCategoryName.trim() }),
+      });
+      if (res.success && res.data) {
+        showToast(`Category "${res.data.name}" created!`, 'success');
+        setCategories((prev) => [...prev, res.data]);
+        setFormCategoryId(res.data.id);
+        setQuickCategoryName('');
+        setShowQuickCategoryInput(false);
+      } else {
+        const errorMsg = typeof res.error === 'string' ? res.error : (res.error?.message || res.message || 'Failed to create category');
+        showToast(errorMsg, 'error');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Error creating category', 'error');
     }
   };
 
@@ -1223,57 +1274,70 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 />
               </div>
 
-              {/* Domain & Route Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {/* Domain & Advanced Route Row */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Domain <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={formDomainId}
-                    disabled={Boolean(editingLink)}
-                    onChange={(e) => {
-                      setFormDomainId(e.target.value);
-                      const dom = domains.find((d) => d.id === e.target.value);
-                      const rts = dom?.routes && dom.routes.length > 0 ? dom.routes : [dom?.routing_path || '/*'];
-                      setFormRoute(rts[0] || '/*');
-                    }}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer disabled:opacity-60"
-                  >
-                    {domains
-                      .filter((d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost')
-                      .map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.domain_name}
-                        </option>
-                      ))}
-                  </select>
-                  {editingLink && (
-                    <small className="block mt-1 text-[11px] text-amber-500">
-                      Domain is permanent. Create a new link to use a different domain.
-                    </small>
+                  {availableRoutes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedRoutes(!showAdvancedRoutes)}
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                    >
+                      <Settings className="w-3 h-3" />
+                      <span>{showAdvancedRoutes ? 'Hide Route Prefix' : 'Advanced Route Prefix'}</span>
+                    </button>
                   )}
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Route Path Prefix <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formRoute}
-                    onChange={(e) => setFormRoute(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
-                  >
-                    {availableRoutes.map((route) => (
-                      <option key={route} value={route}>
-                        {route}
+                <select
+                  value={formDomainId}
+                  disabled={Boolean(editingLink)}
+                  onChange={(e) => {
+                    setFormDomainId(e.target.value);
+                    const dom = domains.find((d) => d.id === e.target.value);
+                    const rts = dom?.routes && dom.routes.length > 0 ? dom.routes : [dom?.routing_path || '/*'];
+                    setFormRoute(rts[0] || '/*');
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer disabled:opacity-60"
+                >
+                  {domains
+                    .filter((d) => d.domain_name !== 'localhost' && d.normalized_domain_name !== 'localhost')
+                    .map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.domain_name}
                       </option>
                     ))}
-                  </select>
-                  <small className="block mt-1 text-[11px] text-slate-400">
-                    Select path prefix for this link (e.g. /go/*, /*)
+                </select>
+                {editingLink && (
+                  <small className="block mt-1 text-[11px] text-amber-500">
+                    Domain is permanent. Create a new link to use a different domain.
                   </small>
-                </div>
+                )}
+
+                {/* Advanced Route Path Prefix selector */}
+                {showAdvancedRoutes && (
+                  <div className="mt-2.5 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Route Path Prefix
+                    </label>
+                    <select
+                      value={formRoute}
+                      onChange={(e) => setFormRoute(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
+                    >
+                      {availableRoutes.map((route) => (
+                        <option key={route} value={route}>
+                          {route}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="block mt-1 text-[10px] text-slate-400">
+                      Matches requests under specific path prefixes (e.g. /go/*, /*).
+                    </small>
+                  </div>
+                )}
               </div>
 
               {/* Slug Row */}
@@ -1350,45 +1414,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
 
-              {/* Redirect Code */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Redirect Code
-                </label>
-                <select
-                  value={formRedirectCode}
-                  onChange={(e) => setFormRedirectCode(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
-                >
-                  <option value={301}>301 - Permanent (cached 1 year)</option>
-                  <option value={302}>302 - Temporary (cached 1 hour)</option>
-                  <option value={307}>307 - Temporary Redirect (cached 1 hour)</option>
-                  <option value={308}>308 - Permanent Redirect (cached 1 year)</option>
-                </select>
-                <small className="block mt-1 text-[10px] text-slate-400">
-                  <strong>301/308 (Permanent):</strong> Browsers cache for 1 year - use when destination won't change.<br />
-                  <strong>302/307 (Temporary):</strong> Browsers cache for 1 hour - use for temporary redirects or A/B testing.
-                </small>
-              </div>
-
               {/* Category & Tags Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Category (optional)
-                  </label>
-                  <select
-                    value={formCategoryId}
-                    onChange={(e) => setFormCategoryId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
-                  >
-                    <option value="">No Category</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Category (optional)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickCategoryInput(!showQuickCategoryInput)}
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>{showQuickCategoryInput ? 'Cancel' : '+ New Category'}</span>
+                    </button>
+                  </div>
+
+                  {showQuickCategoryInput ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="New Category Name..."
+                        value={quickCategoryName}
+                        onChange={(e) => setQuickCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleCreateQuickCategory();
+                          }
+                        }}
+                        className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateQuickCategory}
+                        className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white cursor-pointer hover:bg-indigo-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={formCategoryId}
+                      onChange={(e) => setFormCategoryId(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
+                    >
+                      <option value="">No Category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1844,6 +1924,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </label>
                   <input
                     type="password"
+                    autoComplete="new-password"
+                    id="link-password-protection-input-field"
                     placeholder="Optional password"
                     value={formPassword}
                     onChange={(e) => setFormPassword(e.target.value)}
@@ -2089,16 +2171,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                              Continue Button Text
+                              Banner Destination Link (optional)
                             </label>
                             <input
                               type="text"
-                              placeholder="Proceed to Destination"
-                              value={splashButtonText}
-                              onChange={(e) => setSplashButtonText(e.target.value)}
+                              placeholder="https://sponsor.com/landing"
+                              value={splashBannerLink}
+                              onChange={(e) => setSplashBannerLink(e.target.value)}
                               className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                             />
                           </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            Google AdSense / Custom Ad Script Code (optional)
+                          </label>
+                          <textarea
+                            rows={2}
+                            placeholder="<script async src='https://pagead2.googlesyndication.com/...'></script>"
+                            value={splashAdCode}
+                            onChange={(e) => setSplashAdCode(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs font-mono rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            Continue Button Text
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Proceed to Destination"
+                            value={splashButtonText}
+                            onChange={(e) => setSplashButtonText(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                          />
                         </div>
                       </div>
                     )}
@@ -2148,9 +2256,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm cursor-pointer transition-colors"
+                  disabled={isSavingLink}
+                  className="px-5 py-2.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white shadow-sm cursor-pointer transition-colors flex items-center gap-2"
                 >
-                  {editingLink ? 'Save Changes' : 'Create Short Link'}
+                  {isSavingLink ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating Link...</span>
+                    </>
+                  ) : (
+                    <span>{editingLink ? 'Save Changes' : 'Create Short Link'}</span>
+                  )}
                 </button>
               </div>
             </form>

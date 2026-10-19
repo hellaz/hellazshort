@@ -16,6 +16,7 @@ import { HelpView } from './views/HelpView';
 import { AuthView } from './views/AuthView';
 import { PublicLandingView } from './views/PublicLandingView';
 import { ReportAbuseModal } from './views/ReportAbuseModal';
+import { DashboardHelpPanel } from './components/DashboardHelpPanel';
 
 export const AppContent: React.FC = () => {
   const { showToast } = useToast();
@@ -277,6 +278,9 @@ export const AppContent: React.FC = () => {
           {/* Help */}
           {currentPage === 'help' && <HelpView />}
         </main>
+
+        {/* Right Hand Side Collapsible Help Panel */}
+        <DashboardHelpPanel currentPage={currentPage} onNavigate={(p) => setCurrentPage(p)} />
       </div>
 
       <ReportAbuseModal

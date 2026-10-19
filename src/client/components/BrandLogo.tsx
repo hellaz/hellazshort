@@ -41,6 +41,13 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     textSizeClass = 'text-3xl';
   }
 
+  let filterClass = 'invert dark:invert-0';
+  if (variant === 'dark') {
+    filterClass = 'filter-none';
+  } else if (variant === 'light') {
+    filterClass = 'invert';
+  }
+
   if (imgError) {
     return (
       <div className={`inline-flex items-center gap-2 select-none ${className}`}>
@@ -49,7 +56,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         </div>
         {variant !== 'icon_only' && (
           <div className="flex items-baseline font-black tracking-tight leading-none">
-            <span className={`font-sans ${textSizeClass} text-slate-900 dark:text-white`}>
+            <span className={`font-sans ${textSizeClass} ${variant === 'dark' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
               URL<span className="text-indigo-500">Z</span>
             </span>
             {showDomainSuffix && (
@@ -74,7 +81,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         </div>
         {variant !== 'icon_only' && (
           <div className="flex items-baseline font-black tracking-tight leading-none">
-            <span className={`font-sans ${textSizeClass} text-slate-900 dark:text-white`}>
+            <span className={`font-sans ${textSizeClass} ${variant === 'dark' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
               URL<span className="text-indigo-500">Z</span>
             </span>
             {showDomainSuffix && (
@@ -91,7 +98,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       <img
         src="/auto_urlz_logo_invert.png"
         alt="URLZ"
-        className={`${heightClass} w-auto max-w-[200px] sm:max-w-none object-contain transition-all`}
+        className={`${heightClass} w-auto max-w-[200px] sm:max-w-none object-contain transition-all ${filterClass}`}
         onError={() => setImgError(true)}
       />
       {showDomainSuffix && (
@@ -100,4 +107,3 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     </div>
   );
 };
-
