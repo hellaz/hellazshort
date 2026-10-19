@@ -136,6 +136,9 @@ export const createLinkSchema = baseLinkSchema.extend({
   os_redirects: z.array(osRedirectSchema).max(20).optional().default([]),
   // No default: omitted means "apply the domain's default pixels".
   pixel_ids: z.array(z.string().min(1)).max(5).optional(),
+  captcha_token: z.string().optional(),
+  captcha_answer: z.string().optional(),
+  captcha_solution: z.string().optional(),
 });
 
 // ============================================================================

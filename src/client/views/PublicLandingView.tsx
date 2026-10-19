@@ -67,7 +67,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
       return;
     }
 
-    if (!isLoggedIn && !captchaVerified) {
+    if (!captchaVerified) {
       showToast('Please solve the anti-bot verification challenge.', 'error');
       return;
     }
@@ -338,17 +338,15 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
                 </div>
               )}
 
-              {/* Anti-Bot Captcha Widget for Guest Users */}
-              {!isLoggedIn && (
-                <div className="pt-2 border-t border-slate-800">
-                  <CaptchaWidget
-                    onVerify={(data) => {
-                      setCaptchaVerified(Boolean(data.token || data.answer));
-                      setCaptchaData(data);
-                    }}
-                  />
-                </div>
-              )}
+              {/* Anti-Bot Captcha Widget */}
+              <div className="pt-2 border-t border-slate-800">
+                <CaptchaWidget
+                  onVerify={(data) => {
+                    setCaptchaVerified(Boolean(data.token || data.answer));
+                    setCaptchaData(data);
+                  }}
+                />
+              </div>
             </form>
 
             {/* Social Sign-In prompt for visitors */}

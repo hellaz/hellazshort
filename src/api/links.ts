@@ -24,7 +24,7 @@ import {
 } from '../db/links';
 import { getLinkTags, setLinkTags, getLinksTagsBatch } from '../db/tags';
 import { getCategoryById, getLinksCategoriesBatch } from '../db/categories';
-import { getDomainById } from '../db/domains';
+import { getDomainById, getDomainByName } from '../db/domains';
 import {
   getGeoRedirects,
   getDeviceRedirects,
@@ -57,11 +57,11 @@ import { validateUrlSecurity } from '../utils/urlFilter';
 import { verifyCaptchaResponse } from '../utils/captcha';
 import { hashPassword, verifyPassword } from '../utils/crypto';
 import { detectCountryCode, getCountryName } from '../utils/countryMappings';
-import { authMiddleware, authOrApiKeyMiddleware } from '../middleware/auth';
+import { authMiddleware, authOrApiKeyMiddleware, optionalAuth, apiKeyMiddleware } from '../middleware/auth';
 import { validateJson } from '../middleware/validate';
 import { deleteCachedLink, setCachedLink } from '../services/cache';
 import { requireLinkAccess, requirePermission } from '../middleware/authorization';
-import { canAccessDomain } from '../utils/permissions';
+import { canAccessDomain, hasPermission } from '../utils/permissions';
 import { isInfiniteRedirect } from '../utils/domains';
 import { getEffectiveLinkRoute } from '../utils/route';
 import { createLinkSchema, updateLinkSchema, ogFetchSchema } from '../schemas';
@@ -557,8 +557,13 @@ linksRouter.post('/og-fetch', authMiddleware, validateJson(ogFetchSchema), async
 // Note: Rate limiting intentionally removed for simplicity (internal/self-hosted use)
 // Production deployments should use Cloudflare's infrastructure-level rate limiting or add:
 // createRateLimit({ window: 60, max: 50, key: (c) => `link:create:${c.req.header('CF-Connecting-IP')}` })
-linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'), validateJson(createLinkSchema), async (c) => {
+linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) => {
   const ip = c.req.header('cf-connecting-ip') || 'unknown';
+
+  // If no session user was resolved by optionalAuth, check if an API key Bearer header was provided
+  if (!(c as any).get?.('user') && c.req.header('Authorization')?.startsWith('Bearer sk_')) {
+    await apiKeyMiddleware(c as any, async () => {});
+  }
 
   const validated = c.req.valid('json');
 
@@ -584,6 +589,9 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
   // RE-VALIDATE domain access from database for write operations (security)
   const user = (c as any).get?.('user') as User | undefined;
   const apiKey = (c as any).get?.('apiKey') as ApiKeyContext | undefined;
+  if (user && !hasPermission(user, 'create_links')) {
+    throw new HTTPException(403, { message: 'Access denied. Required permission: create_links' });
+  }
   if (user && !apiKey && validated.domain_id) {
     const hasAccess = await canAccessDomain(c.env, user, effectiveDomainId);
     if (!hasAccess) {
@@ -606,12 +614,11 @@ linksRouter.post('/', authOrApiKeyMiddleware, requirePermission('create_links'),
 
   // Require Captcha for unauthenticated guest requests
   if (!user && !apiKey) {
-    const body: any = await c.req.json().catch(() => ({}));
     const captchaRes = await verifyCaptchaResponse(
       c.env,
-      body.captcha_token,
-      body.captcha_answer,
-      body.captcha_solution
+      validated.captcha_token,
+      validated.captcha_answer,
+      validated.captcha_solution
     );
     if (!captchaRes.valid) {
       throw new HTTPException(400, { message: captchaRes.message || 'Captcha verification failed for anonymous request.' });

@@ -76,12 +76,17 @@ app.use('*', async (c, next) => {
   // Everything else is a redirect route
   const isAdminRoute = path.startsWith('/dashboard') || path.startsWith('/api');
   
-  // Exclude auth endpoints from CSRF (they create sessions, can't have CSRF token before login)
+  // Exclude auth and public endpoints from CSRF (they create sessions or run without a session)
   const isAuthEndpoint = path.endsWith('/auth/login') || 
                          path.endsWith('/auth/register') ||
                          path.endsWith('/auth/refresh') ||
                          path.endsWith('/auth/mfa/verify') ||
-                         path.endsWith('/auth/setup-auto');
+                         path.endsWith('/auth/setup-auto') ||
+                         path.includes('/auth/social/') ||
+                         path.endsWith('/auth/csrf') ||
+                         path.includes('/links/unlock/') ||
+                         path.endsWith('/abuse-reports') ||
+                         (path.endsWith('/links') && !c.req.header('Cookie')?.includes('session_token='));
   
   if (isAdminRoute && !isAuthEndpoint) {
     // Apply CSRF and security headers for dashboard/API routes
