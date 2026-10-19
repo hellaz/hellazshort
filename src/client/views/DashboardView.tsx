@@ -812,15 +812,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return;
     }
     const headers = ['Slug', 'Destination URL', 'Title', 'Clicks', 'Category', 'Tags', 'Created At'];
-    const rows = links.map((l) => [
-      `"${l.slug}"`,
-      `"${l.destination_url.replace(/"/g, '""')}"`,
-      `"${(l.title || '').replace(/"/g, '""')}"`,
-      l.clicks_count || 0,
-      `"${(l.category || '').replace(/"/g, '""')}"`,
-      `"${(l.tags || []).join(';')}"`,
-      new Date(l.created_at).toISOString(),
-    ]);
+    const rows = links.map((l) => {
+      const catStr = typeof l.category === 'object' ? l.category?.name || '' : (l.category || '');
+      const tagStr = (Array.isArray(l.tags) ? l.tags : []).map((t: any) => typeof t === 'object' ? t.name || t.id : t).join(';');
+      return [
+        `"${l.slug}"`,
+        `"${l.destination_url.replace(/"/g, '""')}"`,
+        `"${(l.title || '').replace(/"/g, '""')}"`,
+        l.clicks_count || l.click_count || 0,
+        `"${catStr.replace(/"/g, '""')}"`,
+        `"${tagStr.replace(/"/g, '""')}"`,
+        new Date(l.created_at).toISOString(),
+      ];
+    });
 
     const csvStr = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
@@ -872,11 +876,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         const matchesTitle = (link.title || '').toLowerCase().includes(q);
         if (!matchesSlug && !matchesDest && !matchesTitle) return false;
       }
-      if (selectedTag && !(link.tags || []).includes(selectedTag)) {
-        return false;
+      if (selectedTag) {
+        const tagList = (link.tags || []).map((t: any) => (typeof t === 'object' ? t.name || t.id : t));
+        if (!tagList.includes(selectedTag)) return false;
       }
-      if (selectedCategory && link.category !== selectedCategory) {
-        return false;
+      if (selectedCategory) {
+        const catId = typeof link.category === 'object' ? link.category.id : link.category_id;
+        const catName = typeof link.category === 'object' ? link.category.name : link.category;
+        if (selectedCategory !== catId && selectedCategory !== catName && selectedCategory !== link.category_id) {
+          return false;
+        }
       }
       return true;
     });
@@ -884,7 +893,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Overall Stats
   const stats = useMemo(() => {
-    const totalClicks = links.reduce((sum, l) => sum + (l.clicks_count || 0), 0);
+    const totalClicks = links.reduce((sum, l) => sum + (l.clicks_count || l.click_count || 0), 0);
     const activeCount = links.filter((l) => l.status === 'active').length;
     const brokenCount = links.filter((l) => l.last_status_code && l.last_status_code >= 400).length;
     return {
@@ -1163,7 +1172,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       {/* Clicks */}
                       <td className="py-3.5 px-4 text-center">
                         <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                          {link.clicks_count || 0}
+                          {link.clicks_count || link.click_count || 0}
                         </span>
                       </td>
 
@@ -1196,17 +1205,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
                           {link.category && (
                             <span className="text-[10px] font-medium bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">
-                              {link.category}
+                              {typeof link.category === 'object' ? link.category.name || link.category.id : link.category}
                             </span>
                           )}
-                          {(link.tags || []).map((t) => (
-                            <span
-                              key={t}
-                              className="text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded"
-                            >
-                              #{t}
-                            </span>
-                          ))}
+                          {(Array.isArray(link.tags) ? link.tags : []).map((t: any) => {
+                            const tagName = typeof t === 'object' ? t.name || t.id : t;
+                            return (
+                              <span
+                                key={tagName}
+                                className="text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded"
+                              >
+                                #{tagName}
+                              </span>
+                            );
+                          })}
                         </div>
                       </td>
 
