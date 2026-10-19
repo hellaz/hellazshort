@@ -53,6 +53,16 @@ export const csrfProtection = createMiddleware<{ Bindings: Env; Variables: Varia
         return next();
     }
 
+    // Skip CSRF for auth endpoints that establish sessions or unauthenticated public endpoints
+    const path = c.req.path || new URL(c.req.url).pathname;
+    if (
+        path.includes('/auth/') ||
+        path.includes('/links/unlock') ||
+        path.includes('/abuse-reports')
+    ) {
+        return next();
+    }
+
     // Requests with Bearer tokens or API keys are not subject to CSRF (not ambient credentials)
     if (c.req.header('Authorization')?.startsWith('Bearer ') || c.req.header('X-API-Key')) {
         return next();

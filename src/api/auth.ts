@@ -76,6 +76,15 @@ authRouter.post('/social/:provider', async (c) => {
   });
 });
 
+// CSRF token retrieval endpoint
+authRouter.get('/csrf', async (c) => {
+  const token = (c as any).get?.('csrfToken') || crypto.randomUUID();
+  return c.json({
+    success: true,
+    data: { csrfToken: token },
+  });
+});
+
 // Schemas imported from ../schemas
 
 // Login
