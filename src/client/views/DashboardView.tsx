@@ -161,6 +161,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [deepAndroidUrl, setDeepAndroidUrl] = useState('');
   const [deepDesktopUrl, setDeepDesktopUrl] = useState('');
 
+  // Language Redirects
+  const [targetLanguage, setTargetLanguage] = useState('');
+  const [targetLanguageUrl, setTargetLanguageUrl] = useState('');
+
   // Pixels
   const [selectedPixelIds, setSelectedPixelIds] = useState<string[]>([]);
 
@@ -320,6 +324,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setDeepAndroidUrl('');
     setDeepDesktopUrl('');
 
+    // Language
+    setTargetLanguage('');
+    setTargetLanguageUrl('');
+
     setSelectedPixelIds([]);
     setIsEditModalOpen(true);
   };
@@ -366,6 +374,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setDeepIosUrl('');
       setDeepAndroidUrl('');
       setDeepDesktopUrl('');
+    }
+
+    if (meta.language_redirects && typeof meta.language_redirects === 'object') {
+      const langs = Object.keys(meta.language_redirects);
+      if (langs.length > 0) {
+        setTargetLanguage(langs[0]);
+        setTargetLanguageUrl(meta.language_redirects[langs[0]] || '');
+      } else {
+        setTargetLanguage('');
+        setTargetLanguageUrl('');
+      }
+    } else {
+      setTargetLanguage('');
+      setTargetLanguageUrl('');
     }
 
     // UTM (extract if present in destination)

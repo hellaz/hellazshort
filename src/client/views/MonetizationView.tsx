@@ -196,6 +196,12 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
     }
   };
 
+  const handleCopyReferralUrl = () => {
+    const refUrl = overview.referrals?.referral_url || `${window.location.origin}/auth?ref=${user?.username || 'user'}`;
+    navigator.clipboard.writeText(refUrl);
+    showToast('Affiliate referral link copied to clipboard!', 'success');
+  };
+
   const quota = overview.quota || {
     free_limit: 10,
     bonus_credits: 0,
@@ -239,7 +245,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
               Estimated Ad Revenue
             </span>
             <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-              ${overview.estimated_earnings.toFixed(2)}
+              ${(overview.estimated_earnings ?? 0).toFixed(2)}
             </span>
           </div>
         </div>
@@ -376,13 +382,13 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 block mb-1">Total Monetized Clicks</span>
               <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-                {overview.total_clicks.toLocaleString()}
+                {(overview?.total_clicks ?? 0).toLocaleString()}
               </span>
             </div>
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 block mb-1">Estimated Net Revenue</span>
               <span className="text-2xl font-bold font-mono text-emerald-500">
-                ${overview.estimated_earnings.toFixed(2)}
+                ${(overview?.estimated_earnings ?? 0).toFixed(2)}
               </span>
             </div>
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
@@ -393,7 +399,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                 </span>
               </div>
               <button
-                disabled={overview.estimated_earnings < 50}
+                disabled={(overview?.estimated_earnings ?? 0) < 50}
                 onClick={() => showToast('Payout request submitted to administrator!', 'success')}
                 className="px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 cursor-pointer"
               >
@@ -490,7 +496,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                           {camp.target_url}
                         </td>
                         <td className="p-3.5 font-mono text-[11px]">{camp.target_country || 'ALL'}</td>
-                        <td className="p-3.5 font-mono text-emerald-500">${camp.cpm_rate?.toFixed(2)}</td>
+                        <td className="p-3.5 font-mono text-emerald-500">${(camp.cpm_rate ?? 0).toFixed(2)}</td>
                         <td className="p-3.5 font-mono">{camp.impressions || 0}</td>
                         <td className="p-3.5">
                           <button

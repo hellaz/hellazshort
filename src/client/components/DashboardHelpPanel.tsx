@@ -49,32 +49,34 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
       {
         title: 'Creating & Routing Links',
         items: [
-          'Destination URL: The target web page visitors will land on (supports HTTP & HTTPS).',
-          'Domain & Path Prefix: Choose an active domain and route prefix (/* for full domain or /go/* for specific path).',
-          'Custom Slug: Optional custom alias (e.g. urlz.eu.org/my-brand). If blank, an 8-character random slug is assigned.',
-          'Redirect Code: 301 (Permanent SEO transfer), 302 (Temporary), or 307/308 (HTTP method preservation).',
+          'Destination URL (Required): The target web page visitors will land on (e.g., https://example.com/product).',
+          'Domain Selection: Select an active domain (e.g. urlz.eu.org). By default, links map to root (/*). Click "Advanced Route Prefix" if you need specific sub-path prefixes.',
+          'Custom Slug (Optional): Custom path alias (e.g. /my-brand). If left blank, an 8-character random slug is assigned automatically.',
+          'Redirect Code: Select 301 (Permanent Moved), 302 (Found / Temporary), 307 (Temporary Preserve Method), or 308 (Permanent Preserve Method). Defaults to 301.',
         ],
       },
       {
-        title: 'Dynamic Targeting & Rules',
+        title: 'Targeting & Dynamic Redirects',
         items: [
-          'Geo Redirects: Redirect users from specific countries (e.g. US, DE, JP) to localized destination URLs.',
-          'Device & OS Redirects: Route Mobile (iOS/Android) vs Desktop vs Tablet users to app stores or mobile pages.',
-          'Language Redirects: Direct visitors based on browser preferred language header (e.g. fr, es, de).',
+          'Country / Geo Redirects: Direct visitors from specific countries (e.g. US, DE, JP) to localized destination URLs.',
+          'Device & OS Redirects: Route Mobile (iOS/Android) vs Desktop vs Tablet visitors to dedicated app stores or landing pages.',
+          'Language Redirects: Route visitors based on browser preferred language headers (e.g. fr, es, de).',
+          'UTM Campaign Builder: Easily append utm_source, utm_medium, and utm_campaign query parameters directly in the creation modal.',
         ],
       },
       {
-        title: 'Security & Protection',
+        title: 'Security, Protection & Monetization',
         items: [
-          'Password Protection: Lock short links with a password prompt before redirection.',
-          'Expiration & Max Clicks: Set an expiration date/time or maximum click limit before link deactivates.',
-          'Cloaking: Mask the destination URL in a full-screen iframe so the short URL remains in the browser address bar.',
+          'Password Protection: Lock short links with an optional password prompt before redirection.',
+          'Expiration & Max Clicks: Set an expiration date/time or maximum click limit before the link deactivates.',
+          'Cloaking: Mask the destination URL inside an edge-rendered iframe so the short URL stays in the browser address bar.',
+          'Interstitial Splash Pages: Display a custom sponsored banner image, link, or Google AdSense ad code with a customizable countdown timer (e.g. 5s) before redirecting.',
         ],
       },
     ],
     tips: [
-      'Need to tag UTM params? Use the built-in UTM Campaign Builder in the create modal to auto-append source, medium & campaign.',
-      'Select multiple links using checkboxes to perform batch export, tag assignment, or status changes.',
+      'To organize your links, select or create a Category or add Tags directly in the link creation modal.',
+      'Use checkboxes on the Links list to perform batch operations: export CSV, assign tags, or delete multiple links.',
     ],
   },
   analytics: {
@@ -88,22 +90,22 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
         title: 'Key Metrics Explained',
         items: [
           'Total Clicks: Overall total redirection requests recorded by Cloudflare Workers.',
-          'Unique Visitors: Distinct visitors based on IP hash + User-Agent fingerprint within a 24-hour window.',
+          'Unique Visitors: Distinct visitors calculated based on IP hash + User-Agent fingerprint within a 24-hour window.',
           'Referrers: Websites, search engines, or social platforms where visitors clicked your short link.',
-          'Bot & Crawler Filtering: Automatic filtering of search engine indexers and social media link preview bots.',
+          'Bot & Crawler Filtering: Automatic detection and filtering of search engine indexers and social media link preview bots.',
         ],
       },
       {
         title: 'Geographic & Device Breakdown',
         items: [
           'Country & City Heatmaps: High-resolution visitor location insights resolved at edge data centers.',
-          'Device & Browser Distribution: Percentage breakdown across Mobile, Desktop, Tablet, Chrome, Safari, Firefox, etc.',
+          'Device & Browser Distribution: Percentage breakdown across Mobile, Desktop, Tablet, Chrome, Safari, Firefox, Edge, etc.',
         ],
       },
     ],
     tips: [
-      'Export analytics reports as CSV for client reporting or deeper data warehouse analysis.',
-      'Filter analytics by specific domains or date ranges (24h, 7d, 30d, All Time).',
+      'Export detailed analytics reports as CSV files for client reporting or warehouse analysis.',
+      'Filter analytics charts by specific domains or date ranges (24h, 7d, 30d, All Time).',
     ],
   },
   domains: {
@@ -116,15 +118,15 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
       {
         title: 'Domain Setup & Guidelines',
         items: [
-          'Custom Domains: Use your own brand domains (e.g. link.yourbrand.com) alongside default system domains.',
-          'Route Prefixes: Define route prefixes like /* (root level) or /go/* (prefix level) on each domain.',
-          'Fallback Destination: Specify where visitors go if they request an invalid or non-existent short link path.',
-          'Cloudflare Worker Binding: Ensure your domain routes are configured in Cloudflare DNS or Worker route triggers.',
+          'Custom Domains: Use your own brand domains (e.g. link.yourbrand.com) alongside default system domains (urlz.eu.org).',
+          'Route Prefixes: Define route prefixes like /* (root level routing) or /go/* (isolated sub-folder routing) on each domain.',
+          'Fallback Destination: Specify where visitors go (e.g., https://yourmainwebsite.com) if they request an unassigned or non-existent short link path.',
+          'DNS CNAME Target: Point your custom domain CNAME record to cname.urlz.eu.org in your DNS provider.',
         ],
       },
     ],
     tips: [
-      'Set a custom Fallback URL on each domain to avoid showing default 404 pages when users mistype a slug.',
+      'Always set a custom Fallback URL on each domain to avoid showing default 404 pages when users mistype a slug.',
       'Mark a primary domain as default to auto-select it in link creation modals.',
     ],
   },
@@ -133,14 +135,14 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
     icon: Activity,
     badge: 'Automated Monitoring',
     summary:
-      'Monitor destination URLs in the background to detect broken 404 links, server 5xx outages, and expired domains.',
+      'Monitor destination URLs in the background to detect broken 404 links, server 5xx outages, and unresponsive destinations.',
     sections: [
       {
         title: 'Status Check Mechanics',
         items: [
-          'Automated Cron Checks: Periodic background health checks executed via scheduled cron triggers.',
-          'Manual Run Health Check: Trigger an instant verification scan across active non-deleted links.',
-          'Status Badges: 200 (Healthy), 301/302 (Redirecting), 404 (Not Found / Broken), 500+ (Server Outage), Timeout (Unresponsive).',
+          'Automated Cron Checks: Background health checks executed on a configurable schedule (e.g. every 2 weeks or 1 month).',
+          'Manual Verification ("Run Health Check Now"): Trigger an instant scan across all active non-deleted links in your account.',
+          'Status Badges: 200 OK (Healthy), 301/302/307/308 (Active Redirect), 404 (Broken / Not Found), 500+ (Server Outage), Timeout (Unresponsive).',
         ],
       },
     ],
@@ -174,22 +176,23 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
       },
     ],
     tips: [
-      'Add pixels once in the Tracking Pixels library, then attach them to multiple short links with a single click.',
+      'Add pixels once in the Tracking Pixels library, then attach them to multiple short links in the create modal with a single click.',
     ],
   },
   monetization: {
-    title: 'Monetization & Interstitials',
+    title: 'Monetization & Link Credits',
     icon: DollarSign,
     badge: 'Ad Revenue & Referrals',
     summary:
-      'Monetize link clicks with sponsored splash pages, AdSense banners, and earn free link credits with referrals.',
+      'Monetize link clicks with sponsored splash pages, Google AdSense banners, advertiser campaigns, and earn free link creation credits.',
     sections: [
       {
-        title: 'Monetization Tools',
+        title: 'Monetization & Credits Tools',
         items: [
-          'Interstitial Splash Pages: Display a custom sponsored banner or Google AdSense ad unit with a countdown timer.',
-          'AdSense Integration: Embed responsive Google AdSense code or banner ads directly into redirection interstitials.',
-          'Referral Program: Share your unique referral link to earn +50 free link credits per active signup.',
+          'Short Link Creation Allowance: Base free accounts include 10 short links. Earn +50 bonus link creation credits per referral invite.',
+          'Interstitial Splash Pages: Display custom sponsored banners or Google AdSense ad units with a countdown timer before redirection.',
+          'Advertiser Campaigns: Launch CPM advertiser campaigns ($/1,000 views) targeted by country, with budget limits and custom banners.',
+          'Referral Program: Share your unique referral link to earn +50 permanent link credits per registered referral.',
         ],
       },
     ],
@@ -202,20 +205,20 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
     icon: Shield,
     badge: 'System Admin',
     summary:
-      'Configure user profiles, anti-bot Security Verification, automated status check schedules, and REST API access.',
+      'Configure user profiles, anti-bot Security Verification, automated status check schedules, and REST API keys.',
     sections: [
       {
         title: 'Admin & Profile Settings',
         items: [
           'User Management & Roles: Admin, Owner, Editor, and User role permissions.',
-          'Security Verification: Anti-bot challenge enforcement for public registration and guest link creation.',
+          'Security Verification: Interactive anti-bot challenge enforcement for public registrations and guest link shortening.',
           'API Keys: Generate personal REST API keys for headless link creation and programmatic automation.',
           'Status Check Schedule: Configure automated monitoring frequency (2 weeks, 1 month, daily top 100).',
         ],
       },
     ],
     tips: [
-      'Use API Keys with specific scopes for automated integrations or CI/CD deployments.',
+      'Use REST API Keys with specific scopes for automated integrations or CI/CD deployments.',
     ],
   },
 };
@@ -248,7 +251,7 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('dashboard_help_open');
-      return saved !== null ? saved === 'true' : true; // Open by default on desktop
+      return saved !== null ? saved === 'true' : true;
     } catch {
       return true;
     }
@@ -265,7 +268,6 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
     }
   }, [isOpen]);
 
-  // Determine current page key
   let pageKey = currentPage.split('-')[0] || 'dashboard';
   if (currentPage.startsWith('analytics')) pageKey = 'analytics';
   if (currentPage.startsWith('settings')) pageKey = 'settings';
@@ -273,7 +275,6 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
   const content = PAGE_HELP_MAP[pageKey] || DEFAULT_HELP;
   const IconComponent = content.icon;
 
-  // Filter sections by search query
   const filteredSections = content.sections
     .map((sec) => {
       if (!searchQuery.trim()) return sec;
@@ -289,7 +290,6 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
 
   return (
     <>
-      {/* Closed Floating Toggle Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -302,13 +302,11 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
         </button>
       )}
 
-      {/* Slide-over Right Hand Side Panel */}
       <aside
         className={`fixed inset-y-0 right-0 z-40 w-full sm:w-80 md:w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
       >
-        {/* Header */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-950/60 backdrop-blur-xs">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-400">
@@ -337,15 +335,12 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
           </div>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-          {/* Summary Box */}
           <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 text-indigo-950 dark:text-indigo-200 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
             <p className="leading-relaxed font-medium">{content.summary}</p>
           </div>
 
-          {/* Search Bar */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -365,7 +360,6 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
             )}
           </div>
 
-          {/* Accordion Sections */}
           <div className="space-y-2">
             {filteredSections.map((sec, idx) => {
               const isAccordionOpen = openAccordion === idx;
@@ -404,7 +398,6 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
             })}
           </div>
 
-          {/* Pro Tips Box */}
           {content.tips.length > 0 && (
             <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-amber-900 dark:text-amber-200 space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400 text-[11px]">
@@ -420,7 +413,6 @@ export const DashboardHelpPanel: React.FC<DashboardHelpPanelProps> = ({
           )}
         </div>
 
-        {/* Footer Link to full Help Center */}
         <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between text-xs">
           <span className="text-[11px] text-slate-500">Need full docs or API spec?</span>
           <button
