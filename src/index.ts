@@ -166,8 +166,8 @@ const SPA_INDEX_HTML = `<!DOCTYPE html>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-CggAOiN4.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-Dl_9pbrx.css">
+  <script type="module" crossorigin src="/assets/index.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index.css">
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 antialiased min-h-screen">
   <div id="root"></div>
@@ -188,24 +188,20 @@ async function serveSpa(c: any) {
 
 // Serve static assets from ASSETS binding if available
 app.get('/assets/*', async (c) => {
-  if (c.env.ASSETS) {
-    return c.env.ASSETS.fetch(c.req.raw);
-  }
+  if (c.env.ASSETS) return c.env.ASSETS.fetch(c.req.raw);
   return c.text('Asset not found', 404);
 });
 
-app.get('/*.png', async (c) => {
-  if (c.env.ASSETS) {
-    return c.env.ASSETS.fetch(c.req.raw);
+const staticExtRegex = /\.(png|jpg|jpeg|gif|webp|svg|ico|css|js|woff2?|ttf|eot)$/i;
+app.get('/*', async (c, next) => {
+  const url = new URL(c.req.url);
+  if (staticExtRegex.test(url.pathname)) {
+    if (c.env.ASSETS) {
+      const assetRes = await c.env.ASSETS.fetch(c.req.raw);
+      if (assetRes.status < 400) return assetRes;
+    }
   }
-  return c.text('Asset not found', 404);
-});
-
-app.get('/*.ico', async (c) => {
-  if (c.env.ASSETS) {
-    return c.env.ASSETS.fetch(c.req.raw);
-  }
-  return c.text('Asset not found', 404);
+  return next();
 });
 
 // Serve React Single Page Application for Dashboard & Auth views
@@ -483,17 +479,16 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
   <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 font-black text-xl">
-          🔗
-        </div>
-        <div>
-          <span class="text-xl font-black tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-200 bg-clip-text text-transparent">
-            URLZ
-          </span>
-          <span class="text-[10px] font-mono text-indigo-400 block -mt-1 font-semibold">
-            ${safeDomain}
-          </span>
-        </div>
+        <a href="/" class="flex items-center gap-2.5">
+          <img src="/auto_urlz_logo_invert.png" alt="URLZ" class="h-9 w-auto object-contain" onerror="this.onerror=null;this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden');" />
+          <div class="hidden flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-black text-sm shadow-md">🔗</div>
+            <span class="text-xl font-black text-white">URL<span class="text-indigo-400">Z</span></span>
+          </div>
+        </a>
+        <span class="text-[10px] font-mono text-indigo-400 font-semibold px-2 py-0.5 rounded-md bg-indigo-950/60 border border-indigo-800/50">
+          ${safeDomain}
+        </span>
       </div>
 
       <div class="flex items-center gap-2 sm:gap-3">
