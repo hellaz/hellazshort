@@ -357,21 +357,6 @@ app.get('*', async (c) => {
     return serveSpa(c);
   }
 
-  // Legacy Redirects - Move old root paths to /p/ prefix
-  const legacyPaths: Record<string, string> = {
-    '/features': '/p/features',
-    '/about': '/p/about',
-    '/contact': '/p/contact',
-    '/support': '/p/contact',
-    '/terms': '/p/terms',
-    '/conditions': '/p/terms',
-    '/privacy': '/p/privacy',
-    '/report-abuse': '/p/report-abuse'
-  };
-  if (legacyPaths[path.toLowerCase()]) {
-    return c.redirect(legacyPaths[path.toLowerCase()], 301);
-  }
-
   // Try to find domain and routing path
   let result = await getDomainByRoutingPath(c.env, domain, path);
 

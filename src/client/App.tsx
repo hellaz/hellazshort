@@ -180,12 +180,12 @@ export const AppContent: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.toLowerCase();
-      if (path === '/p/features' || path === '/features') setCurrentPage('features');
-      else if (path === '/p/about' || path === '/about') setCurrentPage('about');
-      else if (path === '/p/contact' || path === '/contact' || path === '/support') setCurrentPage('contact');
-      else if (path === '/p/terms' || path === '/terms' || path === '/conditions') setCurrentPage('terms');
-      else if (path === '/p/privacy' || path === '/privacy') setCurrentPage('privacy');
-      else if (path === '/p/report-abuse' || path === '/report-abuse') setCurrentPage('report-abuse');
+      if (path === '/p/features') setCurrentPage('features');
+      else if (path === '/p/about') setCurrentPage('about');
+      else if (path === '/p/contact') setCurrentPage('contact');
+      else if (path === '/p/terms') setCurrentPage('terms');
+      else if (path === '/p/privacy') setCurrentPage('privacy');
+      else if (path === '/p/report-abuse') setCurrentPage('report-abuse');
       else if (path === '/register' || path === '/signup') {
         setAuthInitialMode('register');
         setCurrentPage('login');
@@ -214,28 +214,28 @@ export const AppContent: React.FC = () => {
         localStorage.setItem('urlz_ref', ref.trim());
       }
 
-      // Check public standalone pages first (support both /p/ and old root paths)
-      if (path === '/p/features' || path === '/features') {
+      // Check public standalone pages first (must use /p/ prefix)
+      if (path === '/p/features') {
         setCurrentPage('features');
         setAuthChecked(true);
         return;
-      } else if (path === '/p/about' || path === '/about') {
+      } else if (path === '/p/about') {
         setCurrentPage('about');
         setAuthChecked(true);
         return;
-      } else if (path === '/p/contact' || path === '/contact' || path === '/support') {
+      } else if (path === '/p/contact') {
         setCurrentPage('contact');
         setAuthChecked(true);
         return;
-      } else if (path === '/p/terms' || path === '/terms' || path === '/conditions') {
+      } else if (path === '/p/terms') {
         setCurrentPage('terms');
         setAuthChecked(true);
         return;
-      } else if (path === '/p/privacy' || path === '/privacy') {
+      } else if (path === '/p/privacy') {
         setCurrentPage('privacy');
         setAuthChecked(true);
         return;
-      } else if (path === '/p/report-abuse' || path === '/report-abuse') {
+      } else if (path === '/p/report-abuse') {
         setCurrentPage('report-abuse');
         setAuthChecked(true);
         return;
