@@ -253,6 +253,50 @@ export function renderExpiredPage(type: 'expired' | 'limit'): string {
 </html>`;
 }
 
+export function renderNotFoundPage(type: 'link' | 'domain' = 'link'): string {
+  const icon = '🔍';
+  const title = type === 'domain' ? 'Domain Not Found' : 'Link Not Found';
+  const message = type === 'domain' 
+    ? 'The domain you are trying to access is not configured on our platform or is currently inactive.'
+    : 'The short link you are looking for does not exist, has been deleted, or the URL is mistyped.';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title} - URLZ</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; margin: 0; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 3rem 2rem; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); position: relative; overflow: hidden; }
+    .card::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(79, 70, 229, 0.05) 0%, transparent 70%); pointer-events: none; }
+    .icon { font-size: 3.5rem; margin-bottom: 1.5rem; filter: drop-shadow(0 0 15px rgba(79, 70, 229, 0.3)); }
+    h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.75rem; color: #fff; letter-spacing: -0.02em; }
+    p { color: #94a3b8; font-size: 0.95rem; line-height: 1.7; margin-bottom: 2rem; }
+    .btn-group { display: flex; flex-direction: column; gap: 0.75rem; }
+    a { display: inline-block; padding: 0.9rem 1.5rem; border-radius: 14px; font-weight: 700; font-size: 0.95rem; transition: all 0.2s; text-decoration: none; }
+    .btn-primary { background: #4f46e5; color: #fff; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
+    .btn-primary:hover { background: #4338ca; transform: translateY(-1px); }
+    .btn-secondary { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
+    .btn-secondary:hover { background: #334155; color: #fff; }
+    .footer { margin-top: 2rem; font-size: 0.75rem; color: #475569; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${icon}</div>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    <div class="btn-group">
+      <a href="/" class="btn-primary">Go to Homepage</a>
+      <a href="/login" class="btn-secondary">Sign In / Dashboard</a>
+    </div>
+    <div class="footer">Next-Generation Link Management &bull; URLZ</div>
+  </div>
+</body>
+</html>`;
+}
+
 export function renderDeepLinkPage(
   deepLinkUrl: string,
   fallbackUrl: string,

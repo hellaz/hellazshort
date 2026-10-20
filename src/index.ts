@@ -365,7 +365,9 @@ app.get('*', async (c) => {
     if (path === '/' || path === '') {
       return serveSpa(c);
     }
-    return c.text('Not found', 404);
+    // Final fallback for unknown routes on non-configured domains
+    const { renderNotFoundPage } = await import('./views/interstitial');
+    return c.html(renderNotFoundPage('domain'), 404);
   }
 
   const { domain: domainObj, matchedRoute } = result;
@@ -379,6 +381,13 @@ app.get('*', async (c) => {
     slug = slug.slice(routePrefix.length);
   }
   slug = slug.replace(/^\//, '').replace(/\/$/, '');
+
+  // Reserved SPA Paths - If the slug matches a public page, serve the SPA instead of redirecting.
+  // This allows direct navigation to /features, /about, etc.
+  const reservedSpaPaths = ['features', 'about', 'contact', 'terms', 'privacy', 'login', 'register', 'setup', 'report-abuse', 'dashboard', 'analytics', 'domains', 'pixels', 'integrations', 'monetization', 'settings', 'help'];
+  if (reservedSpaPaths.includes(slug.toLowerCase())) {
+    return serveSpa(c);
+  }
 
   if (!slug) {
     // #12: serve the configured default page for the domain root (no slug given).

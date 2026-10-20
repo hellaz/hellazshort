@@ -88,13 +88,19 @@ export async function handleRedirect(
   if (!cached || needsCacheRefresh) {
     // Domain is already passed as parameter, no need to fetch again
     if (domain.status !== 'active') {
-      return new Response('Domain not found or inactive', { status: 404 });
+      return new Response(renderNotFoundPage('domain'), { 
+        status: 404,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      });
     }
 
     // Get link from database (only if full cache miss OR need to refresh stale fields)
     const link = await getLinkBySlug(env, domain.id, slug);
     if (!link) {
-      return new Response('Link not found', { status: 404 });
+      return new Response(renderNotFoundPage('link'), { 
+        status: 404,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      });
     }
 
     // Validate that link has an ID (critical for tracking)

@@ -70,14 +70,13 @@ export const SiteAdBanner: React.FC<{ position: 'top' | 'bottom'; adConfig?: AdN
             dangerouslySetInnerHTML={{ __html: adConfig.custom_ad_code }}
           />
         ) : (
-          <div className="max-w-5xl w-full min-h-[90px] flex items-center justify-center overflow-hidden rounded-xl bg-slate-950 border border-slate-800/60 p-2 shadow-inner">
+          <div className="max-w-[728px] w-full h-[90px] flex items-center justify-center overflow-hidden rounded-xl bg-slate-950 border border-slate-800/60 p-1 shadow-inner">
             <ins
               className="adsbygoogle"
-              style={{ display: 'block', width: '100%', minHeight: '90px' }}
+              style={{ display: 'inline-block', width: '728px', height: '90px' }}
               data-ad-client={adConfig?.adsense_client_id || ''}
               data-ad-slot={adConfig?.adsense_slot_id || ''}
-              data-ad-format="auto"
-              data-full-width-responsive="true"
+              data-ad-format="horizontal"
             />
           </div>
         )}
@@ -181,9 +180,6 @@ export const DashboardHeaderAd: React.FC<{ adConfig?: AdNetworkConfig }> = ({ ad
 
   return (
     <div className="hidden lg:flex flex-col items-center justify-center mx-4 my-auto shrink-0">
-      <div className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-mono text-center leading-none mb-0.5">
-        Sponsored Ad (468×60)
-      </div>
       {adConfig?.provider === 'custom' && adConfig.custom_ad_code ? (
         <div
           className="w-[468px] h-[60px] flex items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-inner"
@@ -193,7 +189,7 @@ export const DashboardHeaderAd: React.FC<{ adConfig?: AdNetworkConfig }> = ({ ad
         <div className="w-[468px] h-[60px] flex items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-0.5 shadow-inner">
           <ins
             className="adsbygoogle"
-            style={{ display: 'inline-block', width: '468px', height: '600px' }}
+            style={{ display: 'inline-block', width: '468px', height: '60px' }}
             data-ad-client={adConfig?.adsense_client_id || ''}
             data-ad-slot={adConfig?.adsense_slot_id || ''}
           />
