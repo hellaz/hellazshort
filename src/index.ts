@@ -21,6 +21,7 @@ import { handleRedirect } from './services/redirect';
 import { getDomainByRoutingPath, normalizeRoutePrefix } from './db/domains';
 import { getRootPageSettingsOrDefault } from './db/settings';
 import { escapeHtml } from './utils/html';
+import { renderNotFoundPage } from './views/interstitial';
 
 // Import API routes (static - they're small and needed for functionality)
 import { linksRouter } from './api/links';
@@ -348,6 +349,29 @@ app.get('*', async (c) => {
     });
   }
 
+  // Reserved SPA Paths - If the path starts with /p/ or matches a root entry point, serve the SPA.
+  const isSpaPage = path.startsWith('/p/') || 
+                   ['/login', '/register', '/signup', '/setup', '/dashboard', '/analytics', '/domains', '/pixels', '/integrations', '/monetization', '/settings', '/help'].includes(path.toLowerCase());
+  
+  if (isSpaPage) {
+    return serveSpa(c);
+  }
+
+  // Legacy Redirects - Move old root paths to /p/ prefix
+  const legacyPaths: Record<string, string> = {
+    '/features': '/p/features',
+    '/about': '/p/about',
+    '/contact': '/p/contact',
+    '/support': '/p/contact',
+    '/terms': '/p/terms',
+    '/conditions': '/p/terms',
+    '/privacy': '/p/privacy',
+    '/report-abuse': '/p/report-abuse'
+  };
+  if (legacyPaths[path.toLowerCase()]) {
+    return c.redirect(legacyPaths[path.toLowerCase()], 301);
+  }
+
   // Try to find domain and routing path
   let result = await getDomainByRoutingPath(c.env, domain, path);
 
@@ -366,7 +390,6 @@ app.get('*', async (c) => {
       return serveSpa(c);
     }
     // Final fallback for unknown routes on non-configured domains
-    const { renderNotFoundPage } = await import('./views/interstitial');
     return c.html(renderNotFoundPage('domain'), 404);
   }
 
@@ -381,13 +404,6 @@ app.get('*', async (c) => {
     slug = slug.slice(routePrefix.length);
   }
   slug = slug.replace(/^\//, '').replace(/\/$/, '');
-
-  // Reserved SPA Paths - If the slug matches a public page, serve the SPA instead of redirecting.
-  // This allows direct navigation to /features, /about, etc.
-  const reservedSpaPaths = ['features', 'about', 'contact', 'terms', 'privacy', 'login', 'register', 'setup', 'report-abuse', 'dashboard', 'analytics', 'domains', 'pixels', 'integrations', 'monetization', 'settings', 'help'];
-  if (reservedSpaPaths.includes(slug.toLowerCase())) {
-    return serveSpa(c);
-  }
 
   if (!slug) {
     // #12: serve the configured default page for the domain root (no slug given).

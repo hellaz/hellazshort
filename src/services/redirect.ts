@@ -15,7 +15,7 @@ import { trackClick, parseUserAgent, extractUtmParams, hashIpAddress, formatDate
 import { isBot } from '../utils/bots';
 import { renderOgPreviewPage } from '../views/ogPreview';
 import { renderPixelInterstitial, pixelInterstitialCsp, isHttpUrl, generateNonce } from '../views/pixelInterstitial';
-import { renderPasswordPromptPage, renderSplashPage, renderCloakedPage, renderExpiredPage, renderDeepLinkPage } from '../views/interstitial';
+import { renderPasswordPromptPage, renderSplashPage, renderCloakedPage, renderExpiredPage, renderDeepLinkPage, renderNotFoundPage } from '../views/interstitial';
 import { getAdNetworkSettingsOrDefault } from '../db/settings';
 
 /**

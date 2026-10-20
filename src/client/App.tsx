@@ -167,7 +167,11 @@ export const AppContent: React.FC = () => {
     if (authMode) setAuthInitialMode(authMode);
     setCurrentPage(page);
     try {
-      const url = page === 'landing' ? '/' : `/${page}`;
+      let url = '/';
+      if (page !== 'landing') {
+        const pPages = ['features', 'about', 'contact', 'terms', 'privacy', 'report-abuse'];
+        url = pPages.includes(page) ? `/p/${page}` : `/${page}`;
+      }
       window.history.pushState({}, '', url);
     } catch {}
   };
@@ -175,12 +179,13 @@ export const AppContent: React.FC = () => {
   // Popstate listener for back/forward browser buttons
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname;
-      if (path === '/features') setCurrentPage('features');
-      else if (path === '/about') setCurrentPage('about');
-      else if (path === '/contact') setCurrentPage('contact');
-      else if (path === '/terms') setCurrentPage('terms');
-      else if (path === '/privacy') setCurrentPage('privacy');
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/p/features' || path === '/features') setCurrentPage('features');
+      else if (path === '/p/about' || path === '/about') setCurrentPage('about');
+      else if (path === '/p/contact' || path === '/contact' || path === '/support') setCurrentPage('contact');
+      else if (path === '/p/terms' || path === '/terms' || path === '/conditions') setCurrentPage('terms');
+      else if (path === '/p/privacy' || path === '/privacy') setCurrentPage('privacy');
+      else if (path === '/p/report-abuse' || path === '/report-abuse') setCurrentPage('report-abuse');
       else if (path === '/register' || path === '/signup') {
         setAuthInitialMode('register');
         setCurrentPage('login');
@@ -199,7 +204,7 @@ export const AppContent: React.FC = () => {
   useEffect(() => {
     const checkAuth = async () => {
       // Check path and search query from window.location
-      const path = window.location.pathname;
+      const path = window.location.pathname.toLowerCase();
       const search = window.location.search;
 
       // Extract referral code if present and persist
@@ -209,25 +214,29 @@ export const AppContent: React.FC = () => {
         localStorage.setItem('urlz_ref', ref.trim());
       }
 
-      // Check public standalone pages first
-      if (path === '/features') {
+      // Check public standalone pages first (support both /p/ and old root paths)
+      if (path === '/p/features' || path === '/features') {
         setCurrentPage('features');
         setAuthChecked(true);
         return;
-      } else if (path === '/about') {
+      } else if (path === '/p/about' || path === '/about') {
         setCurrentPage('about');
         setAuthChecked(true);
         return;
-      } else if (path === '/contact' || path === '/support') {
+      } else if (path === '/p/contact' || path === '/contact' || path === '/support') {
         setCurrentPage('contact');
         setAuthChecked(true);
         return;
-      } else if (path === '/terms' || path === '/conditions') {
+      } else if (path === '/p/terms' || path === '/terms' || path === '/conditions') {
         setCurrentPage('terms');
         setAuthChecked(true);
         return;
-      } else if (path === '/privacy') {
+      } else if (path === '/p/privacy' || path === '/privacy') {
         setCurrentPage('privacy');
+        setAuthChecked(true);
+        return;
+      } else if (path === '/p/report-abuse' || path === '/report-abuse') {
+        setCurrentPage('report-abuse');
         setAuthChecked(true);
         return;
       } else if (path === '/register' || path === '/signup' || path === '/auth') {

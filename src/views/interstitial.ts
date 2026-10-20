@@ -149,7 +149,7 @@ export function renderSplashPage(
     <a id="proceedBtn" href="${safeDest}" class="btn disabled">Please wait ${countdown}s...</a>
     <div class="footer">
       <span>🔒 URLZ Interstitial Security Check</span>
-      <a href="/report-abuse?url=${encodeURIComponent(destinationUrl)}">Report Abuse</a>
+      <a href="/p/report-abuse?url=${encodeURIComponent(destinationUrl)}">Report Abuse</a>
     </div>
   </div>
   <script${nonceAttr}>

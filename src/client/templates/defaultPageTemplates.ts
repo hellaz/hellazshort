@@ -60,19 +60,19 @@ export const DEFAULT_BRANDED_WELCOME_HTML = `<!-- URLZ Main Index / Branded Welc
       </p>
       <div class="pt-2 flex flex-wrap items-center justify-center gap-3">
         <a
-          href="/features"
+          href="/p/features"
           class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all inline-flex items-center gap-2"
         >
           <span>Explore All Premium Features &rarr;</span>
         </a>
         <a
-          href="/about"
+          href="/p/about"
           class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs rounded-xl transition-all"
         >
           About Platform
         </a>
         <a
-          href="/contact"
+          href="/p/contact"
           class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs rounded-xl transition-all"
         >
           Contact Support
@@ -310,27 +310,27 @@ export const PAGE_DEFAULT_TEMPLATES: Record<string, { label: string; path: strin
   },
   features: {
     label: 'Features Page',
-    path: '/features',
+    path: '/p/features',
     html: DEFAULT_FEATURES_HTML,
   },
   about: {
     label: 'About Page',
-    path: '/about',
+    path: '/p/about',
     html: DEFAULT_ABOUT_HTML,
   },
   contact: {
     label: 'Contact Page',
-    path: '/contact',
+    path: '/p/contact',
     html: DEFAULT_CONTACT_HTML,
   },
   terms: {
     label: 'Terms of Service',
-    path: '/terms',
+    path: '/p/terms',
     html: DEFAULT_TERMS_HTML,
   },
   privacy: {
     label: 'Privacy Policy',
-    path: '/privacy',
+    path: '/p/privacy',
     html: DEFAULT_PRIVACY_HTML,
   },
 };
