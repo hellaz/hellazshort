@@ -74,6 +74,7 @@ export const registerSchema = z.object({
   password: strongPasswordSchema,
   role: z.enum(['admin', 'user', 'analyst', 'owner']).default('admin'),
   setup_token: z.string().optional(),
+  referral_code: z.string().optional(),
 });
 
 // ============================================================================

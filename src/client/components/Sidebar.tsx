@@ -195,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isOpen && <span>Pixel Library</span>}
         </button>
 
-        {/* Monetization & Revenue */}
+        {/* Sponsorship & Ads */}
         <button
           onClick={() => onNavigate('monetization')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
@@ -203,10 +203,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ? 'bg-emerald-600 text-white'
               : 'hover:bg-slate-800 hover:text-white text-slate-300'
           }`}
-          title="Monetization & Ads"
+          title="Sponsorship & Ads"
         >
           <DollarSign className="w-5 h-5 shrink-0 text-emerald-400" />
-          {isOpen && <span>Monetization &amp; Ads</span>}
+          {isOpen && <span>Sponsorship &amp; Ads</span>}
         </button>
 
         {/* Integrations & API Keys */}
@@ -291,37 +291,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    Captcha & Safety Filters
-                  </button>
-                  <button
-                    onClick={() => onNavigate('settings-default-page')}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                      isCurrent('settings-default-page')
-                        ? 'bg-indigo-600/30 text-indigo-300'
-                        : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Default Root Page
-                  </button>
-                  <button
-                    onClick={() => onNavigate('settings-users')}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                      isCurrent('settings-users')
-                        ? 'bg-indigo-600/30 text-indigo-300'
-                        : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    User Management
-                  </button>
-                  <button
-                    onClick={() => onNavigate('settings-audit')}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
-                      isCurrent('settings-audit')
-                        ? 'bg-indigo-600/30 text-indigo-300'
-                        : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Audit Log
+                    Captcha & Safety
                   </button>
                 </>
               )}
@@ -347,11 +317,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Footer Info */}
       {isOpen && (
         <div className="p-4 border-t border-slate-800/80 text-[11px] text-slate-500 space-y-1">
-          <div className="flex items-center justify-between text-slate-400">
-            <span>URLZ Pro</span>
-            <span className="font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded">v2.4.0</span>
-          </div>
-          <p className="text-[10px]">Cloudflare edge link platform</p>
+          <p>© 2026 URLZ Platform</p>
+          <p className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Edge Status: Operational
+          </p>
         </div>
       )}
     </aside>

@@ -46,8 +46,9 @@ export const analyticsThresholdsSchema = z.object({
  */
 export const rootPageSchema = z.object({
   mode: z.enum(['branded', 'html', 'redirect']),
-  html: z.string().max(100000).optional().default(''),
+  html: z.string().max(300000).optional().default(''),
   redirect_url: z.string().url().max(2048).optional().or(z.literal('')).default(''),
+  pages: z.record(z.string(), z.string()).optional(),
 }).refine(
   (data) => data.mode !== 'redirect' || (!!data.redirect_url && data.redirect_url.length > 0),
   { message: 'redirect_url is required when mode is "redirect"', path: ['redirect_url'] }

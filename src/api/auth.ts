@@ -21,6 +21,7 @@ import { generateMFASecret, verifyMFACode, generateBackupCodes, verifyBackupCode
 import { updateUser } from '../db/users';
 import { logAuditEvent, getAuditLogs, getIpAddress, getUserAgent, type AuditEventType, cleanupOldAuditLogs } from '../services/audit';
 import { getSessionTokenFromRequest } from '../services/session';
+import { generateId } from '../utils/id';
 import {
   loginSchema,
   registerSchema,
@@ -33,23 +34,86 @@ import {
 
 const authRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Social Logins Handler (Google, Twitter/X, Facebook)
+// Social Logins Handler (Google, Twitter/X, Facebook, Cloudflare Access)
 authRouter.post('/social/:provider', async (c) => {
   const provider = c.req.param('provider');
   const body = await c.req.json().catch(() => ({}));
-  const email = body.email || `${provider}_user@urlz.eu.org`;
-  const name = body.name || `${provider.toUpperCase()} User`;
+  
+  let email = (body.email || '').trim();
+  let name = (body.name || '').trim();
+  let providerUserId: string | undefined = undefined;
+
+  // 1. Check for Cloudflare Access (Zero Trust) authenticated headers
+  const cfAccessEmail = c.req.header('cf-access-authenticated-user-email');
+  if (cfAccessEmail) {
+    email = cfAccessEmail;
+    name = cfAccessEmail.split('@')[0];
+    providerUserId = c.req.header('cf-access-user-id') || cfAccessEmail;
+  }
+
+  // 2. Real Google Identity Services (GIS) / ID Token verification
+  if (provider === 'google' && body.credential) {
+    try {
+      const gRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(body.credential)}`
+      );
+      if (gRes.ok) {
+        const gData: any = await gRes.json();
+        if (gData.email) {
+          email = gData.email;
+          name = gData.name || gData.email.split('@')[0];
+          providerUserId = gData.sub;
+        }
+      }
+    } catch (err) {
+      console.warn('Google ID token verification failed:', err);
+    }
+  }
+
+  // Fallback if no real email received
+  if (!email) {
+    email = `${provider}_user@urlz.eu.org`;
+    name = `${provider.toUpperCase()} User`;
+  }
 
   // Find or create user for social login
   let user = await getUserByEmail(c.env, email);
   if (!user) {
     const dummyPassHash = await hashPassword(`SocialAuth_${provider}_${Date.now()}`);
+    // Derive a clean username from real name or email
+    const baseUsername = name ? name.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 18) : `${provider}_${Date.now().toString(36)}`;
+    let username = baseUsername;
+    const existing = await getUserByUsername(c.env, username);
+    if (existing) {
+      username = `${baseUsername}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+
     user = await createUser(c.env, {
-      username: `${provider}_${Date.now().toString(36)}`,
+      username,
       email,
       password_hash: dummyPassHash,
       role: 'user',
+      cloudflare_access_id: providerUserId,
     });
+
+    // Award affiliate referral bonus if referral_code provided
+    if (body.referral_code) {
+      try {
+        const refCode = String(body.referral_code).trim();
+        const referrer = await c.env.DB.prepare(
+          `SELECT id, username FROM users WHERE (username = ? OR id = ?) AND id != ?`
+        ).bind(refCode, refCode, user.id).first<{ id: string; username: string }>();
+
+        if (referrer) {
+          const refId = generateId();
+          await c.env.DB.prepare(
+            `INSERT INTO referrals (id, referrer_user_id, referred_user_id, bonus_links_granted, created_at) VALUES (?, ?, ?, ?, ?)`
+          ).bind(refId, referrer.id, user.id, 50, Date.now()).run();
+        }
+      } catch (e) {
+        console.warn('Failed to award referral credits on social sign-in:', e);
+      }
+    }
   }
 
   await updateLastLogin(c.env, user.id);
@@ -220,7 +284,7 @@ authRouter.post('/register', createRateLimit({
   const validated = c.req.valid('json');
 
   // If users exist, public users are assigned 'user' role; admin/owner can specify other roles.
-  let assignedRole = 'user';
+  let assignedRole: 'admin' | 'user' | 'analyst' | 'owner' = 'user';
   if (userCount === 0) {
     // No users exist - first user setup requires SETUP_TOKEN
     if (!c.env.SETUP_TOKEN) {
@@ -268,6 +332,25 @@ authRouter.post('/register', createRateLimit({
     password_hash: passwordHash,
     role: assignedRole, // First user is always owner, otherwise assignedRole
   });
+
+  // Award affiliate referral bonus if referral_code provided
+  if (validated.referral_code) {
+    try {
+      const refCode = validated.referral_code.trim();
+      const referrer = await c.env.DB.prepare(
+        `SELECT id, username FROM users WHERE (username = ? OR id = ?) AND id != ?`
+      ).bind(refCode, refCode, user.id).first<{ id: string; username: string }>();
+
+      if (referrer) {
+        const refId = generateId();
+        await c.env.DB.prepare(
+          `INSERT INTO referrals (id, referrer_user_id, referred_user_id, bonus_links_granted, created_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(refId, referrer.id, user.id, 50, Date.now()).run();
+      }
+    } catch (e) {
+      console.warn('Failed to award referral credits on registration:', e);
+    }
+  }
 
   // Create session with refresh token
   const { accessToken, refreshToken } = await createSession(c.env, {
@@ -457,9 +540,26 @@ authRouter.get('/me', optionalAuth, async (c) => {
     });
   }
 
+  let token: string | undefined = undefined;
+  if (c.req.header('cf-access-authenticated-user-email') || !(c as any).get?.('session')) {
+    try {
+      const sessionRes = await createSession(c.env, {
+        id: fullUser.id,
+        username: fullUser.username || fullUser.email,
+        email: fullUser.email,
+        role: fullUser.role,
+        global_access: fullUser.global_access === 1 || fullUser.role === 'admin' || fullUser.role === 'owner',
+      });
+      token = sessionRes.accessToken;
+    } catch {
+      // ignore
+    }
+  }
+
   return c.json({
     success: true,
     data: {
+      token,
       id: fullUser.id,
       username: fullUser.username,
       email: fullUser.email,

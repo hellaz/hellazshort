@@ -18,6 +18,9 @@ import {
   X,
   ShieldAlert,
   Check,
+  HelpCircle,
+  Layers,
+  Settings2,
 } from 'lucide-react';
 
 import { User } from '../types';
@@ -34,6 +37,20 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
     isAdmin ? 'ads' : 'referrals'
   );
   const [loading, setLoading] = useState(false);
+
+  // Platform Ad Network Settings (AdSense / Custom Script & CPM Rates)
+  const [adSettings, setAdSettings] = useState({
+    enabled: true,
+    provider: 'adsense' as 'adsense' | 'custom' | 'none',
+    adsense_client_id: '',
+    adsense_slot_id: '',
+    custom_ad_code: '',
+    tier1_cpm: 5.0,
+    tier2_cpm: 3.0,
+    tier3_cpm: 1.5,
+  });
+  const [adSettingsLoading, setAdSettingsLoading] = useState(false);
+  const [adSettingsSaving, setAdSettingsSaving] = useState(false);
 
   // Referral Code Application & Demo Credits
   const [claimCodeInput, setClaimCodeInput] = useState('');
@@ -129,9 +146,44 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
     } catch {}
   };
 
+  const fetchAdSettings = async () => {
+    setAdSettingsLoading(true);
+    try {
+      const res = await apiRequest('monetization/ad-settings');
+      if (res.success && res.data) {
+        setAdSettings((prev) => ({ ...prev, ...res.data }));
+      }
+    } catch {} finally {
+      setAdSettingsLoading(false);
+    }
+  };
+
+  const handleSaveAdSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdSettingsSaving(true);
+    try {
+      const res = await apiRequest('monetization/ad-settings', {
+        method: 'POST',
+        body: JSON.stringify(adSettings),
+      });
+      if (res.success) {
+        showToast('Ad Network and Geo CPM rates saved successfully!', 'success');
+        fetchOverview();
+      } else {
+        showToast(res.error || 'Failed to save ad settings', 'error');
+      }
+    } catch {
+      showToast('Network error saving ad settings', 'error');
+    } finally {
+      setAdSettingsSaving(false);
+    }
+  };
+
   useEffect(() => {
     fetchOverview();
-    if (activeTab === 'campaigns') {
+    if (activeTab === 'ads') {
+      fetchAdSettings();
+    } else if (activeTab === 'campaigns') {
       fetchCampaigns();
     }
   }, [activeTab]);
@@ -272,7 +324,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <DollarSign className="w-6 h-6 text-emerald-500" />
-            <span>Monetization &amp; Link Credits Hub</span>
+            <span>Sponsorship &amp; Link Credits Hub</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             {isAdmin
@@ -421,7 +473,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <span className="text-xs font-semibold text-slate-500 block mb-1">Total Monetized Clicks</span>
+              <span className="text-xs font-semibold text-slate-500 block mb-1">Total Ad Clicks</span>
               <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
                 {(overview?.total_clicks ?? 0).toLocaleString()}
               </span>
@@ -449,44 +501,270 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
             </div>
           </div>
 
+          {/* Admin Ad Network & AdSense Configuration */}
+          {isAdmin && (
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-indigo-500" />
+                    <span>Platform Ad Network &amp; AdSense Integration</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure Google AdSense or external ad network tags to automatically display on branded splash pages.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adSettings.enabled}
+                      onChange={(e) => setAdSettings({ ...adSettings, enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {adSettings.enabled ? 'Network Active' : 'Network Paused'}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveAdSettings} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Ad Network Provider
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAdSettings({ ...adSettings, provider: 'adsense' })}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        adSettings.provider === 'adsense'
+                          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold'
+                          : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span className="block text-sm">Google AdSense</span>
+                      <span className="text-[11px] opacity-75 font-normal">Native responsive display banners</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdSettings({ ...adSettings, provider: 'custom' })}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        adSettings.provider === 'custom'
+                          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold'
+                          : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span className="block text-sm">Custom Ad Script / Tag</span>
+                      <span className="text-[11px] opacity-75 font-normal">PropellerAds, Adsterra, PopAds, or HTML</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdSettings({ ...adSettings, provider: 'none' })}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        adSettings.provider === 'none'
+                          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold'
+                          : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span className="block text-sm">No Global Ads</span>
+                      <span className="text-[11px] opacity-75 font-normal">Only show individual link banner images</span>
+                    </button>
+                  </div>
+                </div>
+
+                {adSettings.provider === 'adsense' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Google AdSense Publisher ID (Client ID)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="ca-pub-1234567890123456"
+                        value={adSettings.adsense_client_id}
+                        onChange={(e) => setAdSettings({ ...adSettings, adsense_client_id: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs text-slate-900 dark:text-white"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-1 block">
+                        Found in your Google AdSense account under Settings &rarr; Account Info.
+                      </span>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        AdSense Ad Unit Slot ID (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="1234567890"
+                        value={adSettings.adsense_slot_id}
+                        onChange={(e) => setAdSettings({ ...adSettings, adsense_slot_id: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs text-slate-900 dark:text-white"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-1 block">
+                        Specific display banner slot. If empty, responsive auto-ads will render.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {adSettings.provider === 'custom' && (
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Custom Ad Network JavaScript / HTML Embed Tag
+                    </label>
+                    <textarea
+                      rows={4}
+                      placeholder={`<script type="text/javascript" src="//network.com/ad.js"></script>\n<div id="ad-unit"></div>`}
+                      value={adSettings.custom_ad_code}
+                      onChange={(e) => setAdSettings({ ...adSettings, custom_ad_code: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs text-slate-900 dark:text-white"
+                    />
+                    <span className="text-[10px] text-slate-500 mt-1 block">
+                      Raw script snippet from any ad platform (PropellerAds, Adsterra, PopAds, Ezoic, etc.).
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Configurable Geo CPM Revenue Rates ($ / 1,000 Views)
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold block mb-1">
+                        Tier 1 CPM Rate (US, UK, CA, AU)
+                      </span>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-slate-400 font-mono text-xs">$</span>
+                        <input
+                          type="number"
+                          step="0.10"
+                          min="0.10"
+                          value={adSettings.tier1_cpm}
+                          onChange={(e) => setAdSettings({ ...adSettings, tier1_cpm: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold block mb-1">
+                        Tier 2 CPM Rate (EU, JP, SE)
+                      </span>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-slate-400 font-mono text-xs">$</span>
+                        <input
+                          type="number"
+                          step="0.10"
+                          min="0.10"
+                          value={adSettings.tier2_cpm}
+                          onChange={(e) => setAdSettings({ ...adSettings, tier2_cpm: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-1">
+                        Tier 3 CPM Rate (Worldwide)
+                      </span>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-slate-400 font-mono text-xs">$</span>
+                        <input
+                          type="number"
+                          step="0.10"
+                          min="0.10"
+                          value={adSettings.tier3_cpm}
+                          onChange={(e) => setAdSettings({ ...adSettings, tier3_cpm: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={adSettingsSaving}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    {adSettingsSaving ? 'Saving Settings...' : 'Save Ad Network & CPM Settings'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Geo CPM Revenue Rates & Country Tiers Explanation */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-              <Globe2 className="w-4 h-4 text-indigo-500" />
-              <span>Geo CPM Revenue Rates &amp; Country Tiers</span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              Interstitial splash page ad views automatically generate ad revenue based on visitor location.
-            </p>
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 shrink-0">
+                <Globe2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Understanding Geo CPM Rates &amp; Country Tiers</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  <strong>What does CPM mean?</strong> CPM stands for <em>Cost Per Mille</em> (Latin for thousand). It is the standard advertising metric that measures how much revenue is generated for every 1,000 views of an interstitial splash page.
+                </p>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
-              <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
-                <div className="font-bold text-indigo-600 dark:text-indigo-400 text-sm mb-1">
-                  Tier 1 ($5.00 / 1,000 CPM)
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-1">
+              <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">Tier 1 Traffic</span>
+                  <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                    ${adSettings.tier1_cpm?.toFixed(2)} / 1k views
+                  </span>
                 </div>
-                <p className="text-slate-500 mb-2">United States, United Kingdom, Canada, Australia</p>
-                <div className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                  Highest Advertiser Demand
-                </div>
+                <p className="text-slate-500 text-[11px] leading-relaxed">
+                  <strong>Countries:</strong> United States, United Kingdom, Canada, Australia.
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                  Advertisers pay the highest rates for these visitors due to high consumer purchasing power and mature e-commerce markets.
+                </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40">
-                <div className="font-bold text-purple-600 dark:text-purple-400 text-sm mb-1">
-                  Tier 2 ($3.00 / 1,000 CPM)
+              <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-600 dark:text-purple-400 text-sm">Tier 2 Traffic</span>
+                  <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                    ${adSettings.tier2_cpm?.toFixed(2)} / 1k views
+                  </span>
                 </div>
-                <p className="text-slate-500 mb-2">Germany, France, Japan, Sweden, Netherlands, Spain</p>
-                <div className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                  Strong Market Rates
-                </div>
+                <p className="text-slate-500 text-[11px] leading-relaxed">
+                  <strong>Countries:</strong> Germany, France, Japan, Sweden, Netherlands, Spain, Greece, Italy.
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                  Solid European and Asian economic markets with steady advertiser demand and healthy commercial click-through rates.
+                </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                <div className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">
-                  Tier 3 ($1.50 / 1,000 CPM)
+              <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">Tier 3 Traffic</span>
+                  <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                    ${adSettings.tier3_cpm?.toFixed(2)} / 1k views
+                  </span>
                 </div>
-                <p className="text-slate-500 mb-2">All Other Worldwide Countries &amp; Regions</p>
-                <div className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                  Standard Baseline
-                </div>
+                <p className="text-slate-500 text-[11px] leading-relaxed">
+                  <strong>Countries:</strong> All other worldwide countries and unclassified traffic.
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                  Global baseline rate. Every visit from any region around the globe continuously contributes to the publisher earnings pool.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-xl text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2.5">
+              <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+              <div className="leading-relaxed text-[11px]">
+                <strong className="text-slate-800 dark:text-slate-200 block mb-0.5">How Earnings are Calculated:</strong>
+                When someone clicks a short link enabled with a splash page, our analytics engine detects their geographic country and credits the link owner with the corresponding Geo CPM rate. Earnings can be withdrawn once they reach the $50 minimum threshold.
               </div>
             </div>
           </div>

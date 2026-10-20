@@ -15,20 +15,24 @@ import {
   Check,
   Mail,
 } from 'lucide-react';
+import { SkyscraperAd, AdNetworkConfig } from '../components/AdBannerComponents';
 
 interface AuthViewProps {
-  initialMode?: 'login' | 'setup';
+  initialMode?: 'login' | 'register' | 'setup';
   onLoginSuccess: (userData: any) => void;
   onNavigateHome: () => void;
+  adConfig?: AdNetworkConfig;
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({
   initialMode = 'login',
   onLoginSuccess,
   onNavigateHome,
+  adConfig,
 }) => {
   const { showToast } = useToast();
   const [mode, setMode] = useState<'login' | 'register' | 'setup' | 'mfa'>(initialMode);
+  const [error, setError] = useState<string>('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -36,9 +40,29 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [mfaCode, setMfaCode] = useState('');
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [isSetupCompleted, setIsSetupCompleted] = useState<boolean | null>(null);
+  const [referralCode, setReferralCode] = useState<string>('');
+
+  useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+      setError('');
+    }
+  }, [initialMode]);
+
+  useEffect(() => {
+    // Check URL query parameters for referral / affiliate code
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref') || params.get('referral_code') || params.get('r') || localStorage.getItem('urlz_ref');
+    if (ref) {
+      setReferralCode(ref.trim());
+      localStorage.setItem('urlz_ref', ref.trim());
+      if (initialMode === 'login' && (window.location.pathname.includes('register') || window.location.pathname.includes('signup'))) {
+        setMode('register');
+      }
+    }
+  }, [initialMode]);
 
   useEffect(() => {
     apiRequest('auth/setup-status')
@@ -98,7 +122,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
     try {
       const res = await apiRequest(`auth/social/${provider}`, {
         method: 'POST',
-        body: JSON.stringify({ email: `${provider}_user@urlz.eu.org`, name: `${provider.toUpperCase()} User` }),
+        body: JSON.stringify({
+          email: `${provider}_user@urlz.eu.org`,
+          name: `${provider.toUpperCase()} User`,
+          referral_code: referralCode.trim() || undefined,
+        }),
       });
       if (res.success && res.data?.token) {
         setAuthToken(res.data.token);
@@ -136,6 +164,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           email: email.trim() || undefined,
           password,
           role: 'user',
+          referral_code: referralCode.trim() || undefined,
         }),
       });
 
@@ -229,9 +258,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
         <BrandLogo variant="dark" size="lg" />
       </button>
 
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95">
-        {/* Glow */}
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-indigo-500/10 blur-[80px] rounded-full" />
+      {/* Main Container with optional Left and Right Skyscraper Ads */}
+      <div className="flex items-center justify-center w-full max-w-7xl px-4">
+        {/* Left Skyscraper Ad */}
+        <SkyscraperAd side="left" adConfig={adConfig} />
+
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 shrink-0">
+          {/* Glow */}
+          <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-indigo-500/10 blur-[80px] rounded-full" />
 
         {error && (
           <div className="mb-5 flex items-center gap-2 p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-xs text-rose-300">
@@ -347,6 +381,16 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 Create a free account and get 10 free short links
               </p>
             </div>
+
+            {referralCode && (
+              <div className="mb-4 p-3 bg-emerald-950/50 border border-emerald-500/30 rounded-xl flex items-center gap-2.5 text-xs text-emerald-300">
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="text-[11px] leading-relaxed">
+                  <span className="font-bold">Affiliate Invite:</span> You were referred by{' '}
+                  <strong className="text-white underline underline-offset-2">@{referralCode}</strong>. You'll receive full platform access, and your referrer will receive +50 link credits!
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleRegister} className="space-y-3.5 text-xs">
               <div>
@@ -626,6 +670,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Right Skyscraper Ad */}
+      <SkyscraperAd side="right" adConfig={adConfig} />
     </div>
-  );
+  </div>
+);
 };

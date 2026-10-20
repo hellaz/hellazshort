@@ -34,11 +34,12 @@ export interface Link {
   description?: string;
   status: 'active' | 'inactive' | 'expired' | 'disabled';
   clicks_count: number;
+  click_count?: number;
   redirect_code: number;
   expires_at?: number | null;
   password?: string | null;
   is_cloaked?: boolean;
-  category?: string | null;
+  category?: string | { id?: string; name?: string } | null;
   category_id?: string | null;
   tags?: string[];
   metadata?: any;
@@ -49,6 +50,9 @@ export interface Link {
   device_redirects?: { device_type: 'desktop' | 'mobile' | 'tablet'; destination_url: string }[];
   os_redirects?: { os: 'android' | 'ios'; destination_url: string }[];
   og_meta?: {
+    title?: string;
+    description?: string;
+    image?: string;
     og_title?: string;
     og_description?: string;
     og_image?: string;
@@ -63,12 +67,6 @@ export interface Link {
     device?: Record<string, string>;
     os?: Record<string, string>;
     city?: Record<string, string>;
-  };
-  pixel_ids?: string[];
-  og_meta?: {
-    title?: string;
-    description?: string;
-    image?: string;
   };
   last_status_code?: number;
   last_checked_at?: number;

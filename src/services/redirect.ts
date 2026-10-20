@@ -16,6 +16,7 @@ import { isBot } from '../utils/bots';
 import { renderOgPreviewPage } from '../views/ogPreview';
 import { renderPixelInterstitial, pixelInterstitialCsp, isHttpUrl, generateNonce } from '../views/pixelInterstitial';
 import { renderPasswordPromptPage, renderSplashPage, renderCloakedPage, renderExpiredPage, renderDeepLinkPage } from '../views/interstitial';
+import { getAdNetworkSettingsOrDefault } from '../db/settings';
 
 /**
  * Merges query parameters from the request URL into the destination URL.
@@ -266,12 +267,30 @@ export async function handleRedirect(
 
   // Splash page interstitial (monetization & branding countdown)
   if (cached.splash?.enabled && !isBot(ogUserAgent) && requestUrl.searchParams.get('skip_splash') !== '1') {
-    return new Response(renderSplashPage(cached.splash, finalDestinationUrl), {
+    let splashConfig = { ...cached.splash };
+    if (!splashConfig.ad_code) {
+      try {
+        const adNet = await getAdNetworkSettingsOrDefault(env);
+        if (adNet.enabled) {
+          if (adNet.provider === 'adsense' && adNet.adsense_client_id) {
+            splashConfig.ad_code = `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adNet.adsense_client_id}" crossorigin="anonymous"></script><ins class="adsbygoogle" style="display:block" data-ad-client="${adNet.adsense_client_id}" data-ad-slot="${adNet.adsense_slot_id || ''}" data-ad-format="auto" data-full-width-responsive="true"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({});</script>`;
+          } else if (adNet.provider === 'custom' && adNet.custom_ad_code) {
+            splashConfig.ad_code = adNet.custom_ad_code;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch ad network settings for splash:', e);
+      }
+    }
+
+    const splashCsp = "default-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.googlesyndication.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: https:; font-src 'self' data: https://fonts.gstatic.com; frame-src *; connect-src *;";
+    return new Response(renderSplashPage(splashConfig, finalDestinationUrl), {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'private, no-store, max-age=0',
         'Vary': 'User-Agent',
+        'Content-Security-Policy': splashCsp,
       },
     });
   }

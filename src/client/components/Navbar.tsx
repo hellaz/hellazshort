@@ -1,7 +1,8 @@
 import React from 'react';
 import { Domain, User } from '../types';
 import { BrandLogo } from './BrandLogo';
-import { Moon, Sun, LogOut, Plus, Link as LinkIcon, Shield, ChevronDown } from 'lucide-react';
+import { Moon, Sun, LogOut, Plus, Shield, ChevronDown } from 'lucide-react';
+import { DashboardHeaderAd, AdNetworkConfig } from './AdBannerComponents';
 
 interface NavbarProps {
   user: User | null;
@@ -13,6 +14,7 @@ interface NavbarProps {
   onLogout: () => void;
   onCreateLinkClick: () => void;
   onNavigate: (page: string) => void;
+  adConfig?: AdNetworkConfig;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -25,12 +27,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onCreateLinkClick,
   onNavigate,
+  adConfig,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
       <div className="flex items-center justify-between px-4 sm:px-6 h-16">
         {/* Brand */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => onNavigate('dashboard')}
             className="flex items-center gap-2.5 text-left focus:outline-hidden cursor-pointer"
@@ -42,8 +45,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
+        {/* Dashboard 468x60 px Classic Header Ad Banner */}
+        <DashboardHeaderAd adConfig={adConfig} />
+
         {/* Controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Domain Selector */}
           <div className="relative">
             <select

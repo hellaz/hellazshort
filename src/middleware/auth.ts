@@ -11,7 +11,7 @@ import type { Context, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Env, ApiKeyContext, Variables } from '../types';
 import { getSessionTokenFromRequest, getSession, type Session } from '../services/session';
-import { getUserById } from '../db/users';
+import { getUserById, getUserByEmail, createUser, getUserByUsername } from '../db/users';
 import { getUserDomainIds } from '../db/userDomains';
 import { verifyApiKey } from '../utils/crypto';
 import { getApiKeyByHash, listApiKeys, updateLastUsed } from '../db/apiKeys';
@@ -137,6 +137,36 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: Vari
   // Get session token from request
   const token = getSessionTokenFromRequest(c.req.raw);
   
+  // Check if request is authenticated by Cloudflare Access (Zero Trust)
+  const cfAccessEmail = c.req.header('cf-access-authenticated-user-email');
+  if (!token && cfAccessEmail) {
+    let cfUser = await getUserByEmail(c.env, cfAccessEmail);
+    if (!cfUser) {
+      const baseUsername = cfAccessEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 18);
+      let username = baseUsername;
+      const existingUser = await getUserByUsername(c.env, username);
+      if (existingUser) {
+        username = `${baseUsername}_${Math.random().toString(36).slice(2, 6)}`;
+      }
+      cfUser = await createUser(c.env, {
+        username,
+        email: cfAccessEmail,
+        role: 'user',
+        cloudflare_access_id: c.req.header('cf-access-user-id') || cfAccessEmail,
+      });
+    }
+
+    c.set('user', {
+      id: cfUser.id,
+      username: cfUser.username || cfUser.email,
+      email: cfUser.email,
+      role: cfUser.role,
+      global_access: cfUser.global_access === 1 || cfUser.role === 'admin' || cfUser.role === 'owner',
+      accessible_domain_ids: [],
+    });
+    return await next();
+  }
+
   if (!token) {
     // Don't track missing tokens as failures - legitimate users visit protected pages
     // before logging in (new visitors, expired sessions, cleared cookies)
@@ -253,6 +283,36 @@ function enforcePasswordChangePending(
 export async function optionalAuth(c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) {
   // Optional authentication - doesn't fail if no auth
   const token = getSessionTokenFromRequest(c.req.raw);
+  
+  // Check if request is authenticated by Cloudflare Access (Zero Trust)
+  const cfAccessEmail = c.req.header('cf-access-authenticated-user-email');
+  if (!token && cfAccessEmail) {
+    let cfUser = await getUserByEmail(c.env, cfAccessEmail);
+    if (!cfUser) {
+      const baseUsername = cfAccessEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 18);
+      let username = baseUsername;
+      const existingUser = await getUserByUsername(c.env, username);
+      if (existingUser) {
+        username = `${baseUsername}_${Math.random().toString(36).slice(2, 6)}`;
+      }
+      cfUser = await createUser(c.env, {
+        username,
+        email: cfAccessEmail,
+        role: 'user',
+        cloudflare_access_id: c.req.header('cf-access-user-id') || cfAccessEmail,
+      });
+    }
+
+    c.set('user', {
+      id: cfUser.id,
+      username: cfUser.username || cfUser.email,
+      email: cfUser.email,
+      role: cfUser.role,
+      global_access: cfUser.global_access === 1 || cfUser.role === 'admin' || cfUser.role === 'owner',
+      accessible_domain_ids: [],
+    });
+    return await next();
+  }
   
   if (token) {
     const session = await getSession(c.env, token);

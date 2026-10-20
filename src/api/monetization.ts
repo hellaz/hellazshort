@@ -10,12 +10,14 @@ import { HTTPException } from 'hono/http-exception';
 import type { Env, User, Variables } from '../types';
 import { authMiddleware } from '../middleware/auth';
 import { generateId } from '../utils/id';
+import { getAdNetworkSettingsOrDefault, setAdNetworkSettings } from '../db/settings';
 
 const monetizationRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // 1. Overview & Geo CPM Ad Revenue
 monetizationRouter.get('/overview', authMiddleware, async (c) => {
   const user = c.get('user') as User;
+  const adSettings = await getAdNetworkSettingsOrDefault(c.env);
 
   // Calculate CPM revenue based on click geolocation breakdown
   let totalClicks = 0;
@@ -41,17 +43,17 @@ monetizationRouter.get('/overview', authMiddleware, async (c) => {
       for (const row of geoRows.results) {
         const country = (row.country || '').toUpperCase();
         const clicks = Number(row.clicks) || 0;
-        let cpmRate = 1.5; // Tier 3 default ($1.50 CPM)
+        let cpmRate = adSettings.tier3_cpm; // Tier 3 default
         if (['US', 'GB', 'CA', 'AU'].includes(country)) {
-          cpmRate = 5.0; // Tier 1 ($5.00 CPM)
+          cpmRate = adSettings.tier1_cpm; // Tier 1
         } else if (['DE', 'FR', 'JP', 'IT', 'ES', 'NL', 'SE', 'GR'].includes(country)) {
-          cpmRate = 3.0; // Tier 2 ($3.00 CPM)
+          cpmRate = adSettings.tier2_cpm; // Tier 2
         }
         estimatedEarnings += (clicks / 1000) * cpmRate;
       }
     } else {
       // Fallback estimate if geo breakdown is empty
-      estimatedEarnings = (totalClicks / 1000) * 2.5;
+      estimatedEarnings = (totalClicks / 1000) * adSettings.tier2_cpm;
     }
   } catch {
     estimatedEarnings = 0.0;
@@ -294,8 +296,39 @@ monetizationRouter.delete('/campaigns/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
 
   await c.env.DB.prepare(`DELETE FROM ad_campaigns WHERE id = ? AND user_id = ?`).bind(id, user.id).run();
-
   return c.json({ success: true, message: 'Campaign deleted successfully' });
 });
 
+// 5. Ad Network Platform Configuration & Geo CPM Settings
+monetizationRouter.get('/ad-settings', authMiddleware, async (c) => {
+  const settings = await getAdNetworkSettingsOrDefault(c.env);
+  return c.json({ success: true, data: settings });
+});
+
+monetizationRouter.post('/ad-settings', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  if (user.role !== 'owner' && user.role !== 'admin') {
+    throw new HTTPException(403, { message: 'Only platform administrators can modify Ad Network settings' });
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  await setAdNetworkSettings(
+    c.env,
+    {
+      enabled: Boolean(body.enabled),
+      provider: body.provider || 'adsense',
+      adsense_client_id: body.adsense_client_id ? String(body.adsense_client_id).trim() : '',
+      adsense_slot_id: body.adsense_slot_id ? String(body.adsense_slot_id).trim() : '',
+      custom_ad_code: body.custom_ad_code ? String(body.custom_ad_code).trim() : '',
+      tier1_cpm: typeof body.tier1_cpm === 'number' ? body.tier1_cpm : 5.0,
+      tier2_cpm: typeof body.tier2_cpm === 'number' ? body.tier2_cpm : 3.0,
+      tier3_cpm: typeof body.tier3_cpm === 'number' ? body.tier3_cpm : 1.5,
+    },
+    user.id
+  );
+
+  return c.json({ success: true, message: 'Ad Network and Geo CPM settings updated successfully' });
+});
+
 export { monetizationRouter };
+

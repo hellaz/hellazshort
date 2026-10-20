@@ -85,21 +85,25 @@ export function renderSplashPage(
     ad_code?: string;
     button_text?: string;
   },
-  destinationUrl: string
+  destinationUrl: string,
+  nonce?: string
 ): string {
-  const countdown = Math.max(Number(splash.countdown) || 15, 2);
+  const countdown = Math.max(Number(splash.countdown) || 5, 1);
   const title = escapeHtml(splash.title || 'Sponsored Destination');
   const customMessage = escapeHtml(splash.message || 'You will be redirected to your destination shortly.');
   const bannerUrl = splash.banner_url ? escapeHtml(splash.banner_url) : '';
   const adCode = splash.ad_code ? splash.ad_code : `<div style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px dashed #6366f1; border-radius: 16px; padding: 1.5rem; text-align: center; color: #a5b4fc; font-size: 0.85rem;"><div style="font-weight: 700; margin-bottom: 0.25rem; color: #fff;">Sponsored AdSense Unit</div><div>Google AdSense Responsive Banner &bull; 728x90</div></div>`;
   const buttonText = escapeHtml(splash.button_text || 'Proceed to Destination');
   const safeDest = escapeHtml(destinationUrl);
+  const jsonDest = JSON.stringify(destinationUrl);
+  const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="${countdown};url=${safeDest}">
   <title>${title} - URLZ</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -116,7 +120,7 @@ export function renderSplashPage(
     p { font-size: 0.9rem; color: #cbd5e1; line-height: 1.6; }
     .target-preview { font-size: 0.75rem; color: #64748b; font-family: monospace; word-break: break-all; margin-top: 0.5rem; }
     .btn { display: inline-block; width: 100%; padding: 0.85rem; border-radius: 14px; border: none; background: #4f46e5; color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background 0.2s, opacity 0.2s; text-decoration: none; }
-    .btn.disabled { opacity: 0.5; pointer-events: none; background: #334155; }
+    .btn.disabled { opacity: 0.6; pointer-events: none; background: #334155; }
     .btn:hover:not(.disabled) { background: #4338ca; }
     .footer { margin-top: 1.25rem; font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #1e293b; }
     .footer a { color: #818cf8; text-decoration: none; }
@@ -144,31 +148,51 @@ export function renderSplashPage(
     </div>
     <a id="proceedBtn" href="${safeDest}" class="btn disabled">Please wait ${countdown}s...</a>
     <div class="footer">
-      <span>🔒 URLZ Monitized Interstitial</span>
+      <span>🔒 URLZ Interstitial Security Check</span>
       <a href="/report-abuse?url=${encodeURIComponent(destinationUrl)}">Report Abuse</a>
     </div>
   </div>
-  <script>
-    let remaining = ${countdown};
-    const cd = document.getElementById('countdown');
-    const btn = document.getElementById('proceedBtn');
-    const dest = "${safeDest}";
-    const interval = setInterval(() => {
-      remaining--;
-      if (remaining > 0) {
-        if (cd) cd.textContent = remaining + 's';
-        if (btn) btn.textContent = 'Please wait ' + remaining + 's...';
-      } else {
-        clearInterval(interval);
-        if (cd) cd.textContent = 'Ready';
-        if (btn) {
-          btn.textContent = '${buttonText} \\u2192';
-          btn.classList.remove('disabled');
+  <script${nonceAttr}>
+    (function() {
+      var remaining = ${countdown};
+      var cd = document.getElementById('countdown');
+      var btn = document.getElementById('proceedBtn');
+      var dest = ${jsonDest};
+
+      function proceed() {
+        try {
+          window.location.replace(dest);
+        } catch (e) {
+          window.location.href = dest;
         }
-        // Auto redirect after countdown finishes
-        window.location.href = dest;
       }
-    }, 1000);
+
+      if (btn) {
+        btn.addEventListener('click', function(e) {
+          if (btn.classList.contains('disabled')) {
+            e.preventDefault();
+            return;
+          }
+          proceed();
+        });
+      }
+
+      var interval = setInterval(function() {
+        remaining--;
+        if (remaining > 0) {
+          if (cd) cd.textContent = remaining + 's';
+          if (btn) btn.textContent = 'Please wait ' + remaining + 's...';
+        } else {
+          clearInterval(interval);
+          if (cd) cd.textContent = 'Redirecting...';
+          if (btn) {
+            btn.textContent = '${buttonText} \\u2192';
+            btn.classList.remove('disabled');
+          }
+          proceed();
+        }
+      }, 1000);
+    })();
   </script>
 </body>
 </html>`;

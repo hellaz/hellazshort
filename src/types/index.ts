@@ -211,6 +211,7 @@ export interface CachedLink {
     message: string;
     banner_url?: string;
     button_text?: string;
+    ad_code?: string;
   };
   is_cloaked?: boolean;
   geo_redirects?: Record<string, string>; // { "US": "https://...", "GB": "https://..." }

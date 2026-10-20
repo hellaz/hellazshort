@@ -463,7 +463,15 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>URLZ - Shorten, Brand & Monetize Links (${safeDomain})</title>
+  <title>URLZ - Shorten, Brand & Simplify Links (${safeDomain})</title>
+  <meta name="description" content="Take full control of your links with lightning-fast Cloudflare edge redirects, password protection, branded splash pages, retargeting pixels, and deep geo-targeting.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="URLZ - Shorten, Brand & Simplify Links (${safeDomain})">
+  <meta property="og:description" content="Take full control of your links with lightning-fast Cloudflare edge redirects, password protection, branded splash pages, retargeting pixels, and deep geo-targeting.">
+  <meta property="og:site_name" content="URLZ">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="URLZ - Shorten, Brand & Simplify Links (${safeDomain})">
+  <meta name="twitter:description" content="Take full control of your links with lightning-fast Cloudflare edge redirects, password protection, branded splash pages, retargeting pixels, and deep geo-targeting.">
   <script src="https://cdn.tailwindcss.com"${nonceAttr}></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -535,7 +543,7 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
       </div>
 
       <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
-        Shorten, Brand & Monetize <br class="hidden sm:inline" />
+        Shorten, Brand & Simplify <br class="hidden sm:inline" />
         <span class="bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
           Every Single Link
         </span>
@@ -543,7 +551,7 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
 
       <p class="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
         Take full control of your links with lightning-fast Cloudflare edge redirects, password protection,
-        monetized splash pages, retargeting pixels, and deep geo-targeting.
+        branded splash pages, retargeting pixels, and deep geo-targeting.
       </p>
 
       <!-- Instant Shortener Form with Security Verification -->
@@ -734,7 +742,7 @@ function renderBrandedRootPage(domainName: string, nonce: string = ''): string {
 
         <div class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-purple-500/50 transition-all">
           <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-4 text-xl">⏳</div>
-          <h3 class="text-base font-bold text-white mb-2">Monetization & Splash Pages</h3>
+          <h3 class="text-base font-bold text-white mb-2">Sponsorship & Splash Pages</h3>
           <p class="text-xs text-slate-400 leading-relaxed">
             Display customized splash screens with sponsor banners, countdown timers, and CTAs before sending users to final destinations.
           </p>

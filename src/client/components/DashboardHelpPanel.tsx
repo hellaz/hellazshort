@@ -65,7 +65,7 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
         ],
       },
       {
-        title: 'Security, Protection & Monetization',
+        title: 'Security, Protection & Sponsorship',
         items: [
           'Password Protection: Lock short links with an optional password prompt before redirection.',
           'Expiration & Max Clicks: Set an expiration date/time or maximum click limit before the link deactivates.',
@@ -180,14 +180,14 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
     ],
   },
   monetization: {
-    title: 'Monetization & Link Credits',
+    title: 'Sponsorship & Link Credits',
     icon: DollarSign,
     badge: 'Ad Revenue & Referrals',
     summary:
-      'Monetize link clicks with sponsored splash pages, Google AdSense banners, advertiser campaigns, and earn free link creation credits.',
+      'Integrate ads and sponsorship with sponsored splash pages, Google AdSense banners, advertiser campaigns, and earn free link creation credits.',
     sections: [
       {
-        title: 'Monetization & Credits Tools',
+        title: 'Sponsorship & Credits Tools',
         items: [
           'Short Link Creation Allowance: Base free accounts include 10 short links. Earn +50 bonus link creation credits per referral invite.',
           'Interstitial Splash Pages: Display custom sponsored banners or Google AdSense ad units with a countdown timer before redirection.',

@@ -28,6 +28,7 @@ import {
   setPrivacySettings,
   getBotProtectionSettingsOrDefault,
   setBotProtectionSettings,
+  getAdNetworkSettingsOrDefault,
 } from '../db/settings';
 import { getFrequencyLabel } from '../types';
 import {
@@ -198,6 +199,28 @@ settingsRouter.put('/analytics-thresholds', authMiddleware, validateJson(analyti
   }
 });
 
+// Public endpoint for visitors to load custom page HTML & site-wide Ad settings
+settingsRouter.get('/public-pages', async (c) => {
+  const setting = await getRootPageSettingsOrDefault(c.env);
+  const adSetting = await getAdNetworkSettingsOrDefault(c.env);
+  return c.json({
+    success: true,
+    data: {
+      mode: setting.mode,
+      html: setting.html,
+      redirect_url: setting.redirect_url,
+      pages: setting.pages || {},
+      ad_settings: {
+        enabled: adSetting.enabled,
+        provider: adSetting.provider,
+        adsense_client_id: adSetting.adsense_client_id,
+        adsense_slot_id: adSetting.adsense_slot_id,
+        custom_ad_code: adSetting.custom_ad_code,
+      },
+    },
+  });
+});
+
 // Root page settings (#12) — what the domain root serves when no slug is given.
 settingsRouter.get('/root-page', authMiddleware, async (c) => {
   const user = c.get('user') as User;
@@ -228,6 +251,7 @@ settingsRouter.put('/root-page', authMiddleware, validateJson(rootPageSchema), a
         mode: validated.mode,
         html: validated.html || '',
         redirect_url: validated.redirect_url || '',
+        pages: validated.pages || {},
       },
       user.id
     );

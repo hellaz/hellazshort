@@ -24,7 +24,15 @@ import {
   EyeOff,
   Edit3,
   Sparkles,
+  Code,
+  RotateCcw,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
+import {
+  DEFAULT_BRANDED_WELCOME_HTML,
+  PAGE_DEFAULT_TEMPLATES,
+} from '../templates/defaultPageTemplates';
 
 interface SettingsViewProps {
   user: User | null;
@@ -72,10 +80,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
   const [mfaLoading, setMfaLoading] = useState(false);
 
-  // Root Page State
+  // Root Page & Additional Pages State
   const [rootMode, setRootMode] = useState<'branded' | 'redirect' | 'html'>('branded');
   const [rootRedirectUrl, setRootRedirectUrl] = useState('');
-  const [rootHtml, setRootHtml] = useState('');
+  const [rootHtml, setRootHtml] = useState(DEFAULT_BRANDED_WELCOME_HTML);
+  const [rootPages, setRootPages] = useState<Record<string, string>>({
+    features: '',
+    about: '',
+    contact: '',
+    terms: '',
+    privacy: '',
+  });
+  const [selectedEditPage, setSelectedEditPage] = useState<string>('branded');
+  const [showLivePreview, setShowLivePreview] = useState(false);
   const [rootSaving, setRootSaving] = useState(false);
 
   // Users Management State (Owner/Admin)
@@ -126,7 +143,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         if (res.success && res.data) {
           setRootMode(res.data.mode || 'branded');
           setRootRedirectUrl(res.data.redirect_url || '');
-          setRootHtml(res.data.html || '');
+          const htmlContent = res.data.html || DEFAULT_BRANDED_WELCOME_HTML;
+          setRootHtml(htmlContent);
+          setRootPages(res.data.pages || {});
         }
       });
     }
@@ -358,7 +377,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  // Save Root Page Settings
+  // Save Root Page Settings & Additional Pages
   const handleSaveRootPage = async (e: React.FormEvent) => {
     e.preventDefault();
     setRootSaving(true);
@@ -368,17 +387,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         body: JSON.stringify({
           mode: rootMode,
           redirect_url: rootMode === 'redirect' ? rootRedirectUrl : undefined,
-          html: rootMode === 'html' ? rootHtml : undefined,
+          html: rootHtml,
+          pages: rootPages,
         }),
       });
 
       if (res.success) {
-        showToast('Root page configuration saved!', 'success');
+        showToast('Root page configuration and page HTML saved!', 'success');
       } else {
         showToast(res.error || 'Failed to save settings', 'error');
       }
     } finally {
       setRootSaving(false);
+    }
+  };
+
+  const handleSelectRootMode = (mode: 'branded' | 'redirect' | 'html') => {
+    setRootMode(mode);
+    if (mode === 'branded') {
+      setSelectedEditPage('branded');
+      if (!rootHtml || rootHtml.trim().length === 0) {
+        setRootHtml(DEFAULT_BRANDED_WELCOME_HTML);
+      }
+      showToast('Loaded Branded Welcome Page HTML source into editor', 'info');
+    } else if (mode === 'html') {
+      setSelectedEditPage('branded');
+    }
+  };
+
+  const currentEditingHtml =
+    selectedEditPage === 'branded'
+      ? (rootHtml && rootHtml.trim().length > 0 ? rootHtml : DEFAULT_BRANDED_WELCOME_HTML)
+      : (rootPages[selectedEditPage] !== undefined && rootPages[selectedEditPage] !== '')
+      ? rootPages[selectedEditPage]
+      : PAGE_DEFAULT_TEMPLATES[selectedEditPage]?.html || '';
+
+  const handleUpdateCurrentHtml = (val: string) => {
+    if (selectedEditPage === 'branded') {
+      setRootHtml(val);
+    } else {
+      setRootPages((prev) => ({
+        ...prev,
+        [selectedEditPage]: val,
+      }));
+    }
+  };
+
+  const handleResetToDefaultTemplate = () => {
+    if (selectedEditPage === 'branded') {
+      setRootHtml(DEFAULT_BRANDED_WELCOME_HTML);
+      showToast('Loaded default Branded Welcome Page template', 'info');
+    } else {
+      const defaultHtml = PAGE_DEFAULT_TEMPLATES[selectedEditPage]?.html || '';
+      setRootPages((prev) => ({
+        ...prev,
+        [selectedEditPage]: defaultHtml,
+      }));
+      showToast(`Loaded default template for ${PAGE_DEFAULT_TEMPLATES[selectedEditPage]?.label || selectedEditPage}`, 'info');
     }
   };
 
@@ -754,52 +819,71 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: DEFAULT ROOT PAGE */}
+      {/* TAB 3: DEFAULT ROOT PAGE & PUBLIC PAGES HTML EDITOR */}
       {activeTab === 'default-page' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
           <div>
             <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
               <Sliders className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <span>Domain Root Page Behavior</span>
+              <span>Default Root Page &amp; Public Pages HTML Editor</span>
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Choose what visitors see when they open your root domain (e.g. urlz.eu.org without a slug)
+              Configure what visitors see when opening your root domain (e.g. urlz.eu.org without a slug) and customize HTML content across all public pages.
             </p>
           </div>
 
-          <form onSubmit={handleSaveRootPage} className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { id: 'branded', label: 'Branded Welcome Page', desc: 'Modern public landing page with link shortener' },
-                { id: 'redirect', label: 'Redirect to URL', desc: 'Forward root visitors immediately to a custom destination' },
-                { id: 'html', label: 'Custom HTML Page', desc: 'Render your own custom styled HTML markup' },
-              ].map((opt) => (
-                <label
-                  key={opt.id}
-                  className={`p-4 rounded-xl border text-xs cursor-pointer transition-all ${
-                    rootMode === opt.id
-                      ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 font-semibold ring-1 ring-indigo-600'
-                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="rootMode"
-                    value={opt.id}
-                    checked={rootMode === opt.id}
-                    onChange={() => setRootMode(opt.id as any)}
-                    className="sr-only"
-                  />
-                  <div className="font-bold mb-1">{opt.label}</div>
-                  <div className="text-[11px] opacity-75 font-normal">{opt.desc}</div>
-                </label>
-              ))}
+          <form onSubmit={handleSaveRootPage} className="space-y-6 text-xs">
+            {/* 1. Root Domain Behavior Mode Selection */}
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                Root Domain Behavior (for visitors accessing /)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  {
+                    id: 'branded',
+                    label: 'Branded Welcome Page',
+                    desc: 'Default public landing page with live link shortener and feature showcase',
+                  },
+                  {
+                    id: 'redirect',
+                    label: 'Redirect to URL',
+                    desc: 'Forward root visitors immediately (302) to an external URL or custom destination',
+                  },
+                  {
+                    id: 'html',
+                    label: 'Custom HTML Page',
+                    desc: 'Render raw custom standalone HTML markup at root domain',
+                  },
+                ].map((opt) => (
+                  <label
+                    key={opt.id}
+                    className={`p-4 rounded-xl border text-xs cursor-pointer transition-all ${
+                      rootMode === opt.id
+                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 font-semibold ring-1 ring-indigo-600'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="rootMode"
+                      value={opt.id}
+                      checked={rootMode === opt.id}
+                      onChange={() => handleSelectRootMode(opt.id as any)}
+                      className="sr-only"
+                    />
+                    <div className="font-bold mb-1">{opt.label}</div>
+                    <div className="text-[11px] opacity-75 font-normal leading-relaxed">{opt.desc}</div>
+                  </label>
+                ))}
+              </div>
             </div>
 
+            {/* Destination URL Input if in Redirect mode */}
             {rootMode === 'redirect' && (
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Forward Destination URL
+              <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2">
+                <label className="block font-semibold text-amber-900 dark:text-amber-200">
+                  Forward Destination URL <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="url"
@@ -807,33 +891,168 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   placeholder="https://example.com/company-home"
                   value={rootRedirectUrl}
                   onChange={(e) => setRootRedirectUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                 />
+                <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                  Visitors accessing the root domain will be immediately redirected to this destination with HTTP 302.
+                </p>
               </div>
             )}
 
-            {rootMode === 'html' && (
+            {/* 2. Public Pages HTML Editor */}
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <Code className="w-4 h-4 text-indigo-500" />
+                    <span>Public Pages HTML Content Editor</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Select a page below to view and edit its HTML source. Changes are rendered inside the unified public header and footer.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetToDefaultTemplate}
+                    className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                    title="Reset to default template"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset to Default Template</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowLivePreview(!showLivePreview)}
+                    className={`px-3 py-1.5 rounded-lg border font-medium text-xs flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      showLivePreview
+                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                        : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>{showLivePreview ? 'Hide Preview' : 'Live Preview'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Page Select Tabs */}
+              <div className="flex overflow-x-auto gap-1.5 pb-1 border-b border-slate-200 dark:border-slate-800 scrollbar-none">
+                {[
+                  { id: 'branded', label: 'Main Index / Welcome Page', path: '/' },
+                  { id: 'features', label: 'Features Page', path: '/features' },
+                  { id: 'about', label: 'About Page', path: '/about' },
+                  { id: 'contact', label: 'Contact Page', path: '/contact' },
+                  { id: 'terms', label: 'Terms of Service', path: '/terms' },
+                  { id: 'privacy', label: 'Privacy Policy', path: '/privacy' },
+                ].map((pg) => {
+                  const isSelected = selectedEditPage === pg.id;
+                  const isCustomized =
+                    pg.id === 'branded'
+                      ? Boolean(rootHtml && rootHtml !== DEFAULT_BRANDED_WELCOME_HTML)
+                      : Boolean(rootPages[pg.id] && rootPages[pg.id]?.trim().length > 0);
+
+                  return (
+                    <button
+                      key={pg.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedEditPage(pg.id);
+                        if (pg.id === 'branded' && (!rootHtml || rootHtml.trim().length === 0)) {
+                          setRootHtml(DEFAULT_BRANDED_WELCOME_HTML);
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer transition-all flex items-center gap-2 ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <span>{pg.label}</span>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                        isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                      }`}>
+                        {pg.path}
+                      </span>
+                      {isCustomized && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Customized HTML" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Page Edit Status Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    Editing: {PAGE_DEFAULT_TEMPLATES[selectedEditPage]?.label || selectedEditPage}
+                  </span>
+                  <span className="font-mono text-indigo-600 dark:text-indigo-400 text-[11px] font-semibold">
+                    ({PAGE_DEFAULT_TEMPLATES[selectedEditPage]?.path || '/'})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                  <span>{currentEditingHtml.length} characters</span>
+                  <span>&bull;</span>
+                  <span>{currentEditingHtml.split('\n').length} lines</span>
+                </div>
+              </div>
+
+              {/* HTML Textarea Editor */}
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Custom HTML Markup
-                </label>
                 <textarea
-                  rows={6}
-                  placeholder="<!DOCTYPE html><html><body><h1>Welcome</h1></body></html>"
-                  value={rootHtml}
-                  onChange={(e) => setRootHtml(e.target.value)}
-                  className="w-full p-3 font-mono text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  rows={13}
+                  value={currentEditingHtml}
+                  onChange={(e) => handleUpdateCurrentHtml(e.target.value)}
+                  placeholder="Enter HTML markup here..."
+                  className="w-full p-4 font-mono text-xs leading-relaxed rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-950 text-emerald-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-inner selection:bg-indigo-600 selection:text-white"
+                  spellCheck={false}
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  You can use standard HTML tags, Tailwind utility classes, links, and responsive grid elements. The unified header and footer wrap the page automatically.
+                </p>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={rootSaving}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl cursor-pointer transition-colors"
-            >
-              {rootSaving ? 'Saving...' : 'Save Root Page Config'}
-            </button>
+              {/* Live Preview Container if enabled */}
+              {showLivePreview && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <span className="flex items-center gap-1.5">
+                      <Eye className="w-4 h-4 text-indigo-500" />
+                      <span>Live Rendered HTML Preview</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500">Sandbox preview mode</span>
+                  </div>
+                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 text-slate-100 overflow-x-auto shadow-2xl">
+                    <div dangerouslySetInnerHTML={{ __html: currentEditingHtml }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Save Button */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                Saving updates the domain root behavior and all customized page HTML.
+              </span>
+              <button
+                type="submit"
+                disabled={rootSaving}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md shadow-indigo-600/20 cursor-pointer transition-colors flex items-center gap-2"
+              >
+                {rootSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Saving Changes...</span>
+                  </>
+                ) : (
+                  <span>Save All Page Configurations</span>
+                )}
+              </button>
+            </div>
           </form>
         </div>
       )}

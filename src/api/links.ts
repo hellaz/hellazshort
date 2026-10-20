@@ -559,12 +559,7 @@ linksRouter.post('/og-fetch', authMiddleware, validateJson(ogFetchSchema), async
 });
 
 // Create link
-// Note: Rate limiting intentionally removed for simplicity (internal/self-hosted use)
-// Production deployments should use Cloudflare's infrastructure-level rate limiting or add:
-// createRateLimit({ window: 60, max: 50, key: (c) => `link:create:${c.req.header('CF-Connecting-IP')}` })
 linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) => {
-  const ip = c.req.header('cf-connecting-ip') || 'unknown';
-
   // If no session user was resolved by optionalAuth, check if an API key Bearer header was provided
   if (!(c as any).get?.('user') && c.req.header('Authorization')?.startsWith('Bearer sk_')) {
     await apiKeyMiddleware(c as any, async () => {});
@@ -572,7 +567,7 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
 
   const validated = c.req.valid('json');
 
-  // Auto-resolve domain_id if omitted (e.g. guest/public landing page requests)
+  // Auto-resolve domain_id if omitted (guest/public requests)
   let effectiveDomainId = validated.domain_id;
   if (!effectiveDomainId) {
     const reqHost = (c.req.header('host') || 'urlz.eu.org').split(':')[0].toLowerCase();
@@ -591,9 +586,9 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
     throw new HTTPException(400, { message: 'No valid active domain available for short link creation.' });
   }
 
-  // RE-VALIDATE domain access from database for write operations (security)
   const user = (c as any).get?.('user') as User | undefined;
   const apiKey = (c as any).get?.('apiKey') as ApiKeyContext | undefined;
+
   if (user && !hasPermission(user, 'create_links')) {
     throw new HTTPException(403, { message: 'Access denied. Required permission: create_links' });
   }
@@ -604,155 +599,91 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
     }
   }
 
-  // Validate URL structure
   if (!isValidUrl(validated.destination_url)) {
     throw new HTTPException(400, { message: 'Invalid destination URL' });
   }
 
-  // Validate URL Security (TLD Blacklist, Malware & Inappropriate Content Filtering)
   const securityCheck = validateUrlSecurity(validated.destination_url);
   if (!securityCheck.safe) {
-    throw new HTTPException(400, {
-      message: securityCheck.reason || 'Destination URL failed security & domain safety checks.',
-    });
+    throw new HTTPException(400, { message: securityCheck.reason || 'Destination URL failed security checks.' });
   }
 
-  // Require Captcha for unauthenticated guest requests
   if (!user && !apiKey) {
-    const captchaRes = await verifyCaptchaResponse(
-      c.env,
-      validated.captcha_token,
-      validated.captcha_answer,
-      validated.captcha_solution
-    );
+    const captchaRes = await verifyCaptchaResponse(c.env, validated.captcha_token, validated.captcha_answer, validated.captcha_solution);
     if (!captchaRes.valid) {
-      throw new HTTPException(400, { message: captchaRes.message || 'Captcha verification failed for anonymous request.' });
+      throw new HTTPException(400, { message: captchaRes.message || 'Captcha verification failed.' });
     }
   }
 
-  // Free short links quota (10 free links for regular users + referral bonus credits)
+  // Quota check
   if (user && user.role !== 'owner' && user.role !== 'admin') {
-    const userLinksCountRow = await c.env.DB.prepare(
-      `SELECT COUNT(*) as count FROM links WHERE created_by = ? AND status != 'deleted'`
-    ).bind(user.id).first<{ count: number }>();
-    const usedCount = userLinksCountRow?.count || 0;
-
-    const bonusRow = await c.env.DB.prepare(
-      `SELECT SUM(bonus_links_granted) as total_bonus FROM referrals WHERE referrer_user_id = ?`
-    ).bind(user.id).first<{ total_bonus: number }>();
-    const bonusLinks = Number(bonusRow?.total_bonus) || 0;
-
-    const maxAllowed = 10 + bonusLinks;
-    if (usedCount >= maxAllowed) {
-      throw new HTTPException(403, {
-        message: `Free link limit reached (${usedCount}/${maxAllowed} links used). Free accounts are limited to 10 short links. Earn +50 link credits per invite in Monetization & Referrals to unlock more links!`,
-      });
+    const userLinksCountRow = await c.env.DB.prepare(`SELECT COUNT(*) as count FROM links WHERE created_by = ? AND status != 'deleted'`).bind(user.id).first<{ count: number }>();
+    const bonusRow = await c.env.DB.prepare(`SELECT SUM(bonus_links_granted) as total_bonus FROM referrals WHERE referrer_user_id = ?`).bind(user.id).first<{ total_bonus: number }>();
+    const maxAllowed = 10 + (Number(bonusRow?.total_bonus) || 0);
+    if ((userLinksCountRow?.count || 0) >= maxAllowed) {
+      throw new HTTPException(403, { message: `Free link limit reached (${userLinksCountRow?.count}/${maxAllowed}).` });
     }
   }
 
-  // Check for infinite redirect loop
   if (await isInfiniteRedirect(c.env, validated.destination_url)) {
-    throw new HTTPException(400, {
-      message: 'Destination URL cannot point to a reserved route on a managed domain (infinite redirect loop).'
-    });
+    throw new HTTPException(400, { message: 'Infinite redirect loop detected.' });
   }
 
-  // Validate domain exists and is active
   const domain = await getDomainById(c.env, effectiveDomainId);
-  if (!domain) {
-    throw new HTTPException(404, { message: 'Domain not found' });
-  }
-  if (domain.status !== 'active') {
-    throw new HTTPException(400, { message: 'Cannot create links for inactive domain. Please activate the domain first.' });
+  if (!domain || domain.status !== 'active') {
+    throw new HTTPException(400, { message: 'Inactive or non-existent domain.' });
   }
 
-  // Validate route if explicitly provided
-  if (validated.route) {
-    const validRoutes = (domain.routes && domain.routes.length > 0)
-      ? domain.routes
-      : [domain.routing_path || '/*'];
-    if (!validRoutes.includes(validated.route)) {
-      throw new HTTPException(400, { message: 'Invalid route for this domain' });
-    }
-  }
-
-  // Resolve the effective route: an explicit route wins, otherwise default to the
-  // domain's primary route so the link is always reachable and displays correctly.
   const effectiveRoute = getEffectiveLinkRoute(domain, validated.route);
 
-  // Check API key domain scoping (already declared above)
-  if (apiKey && apiKey.domain_ids && apiKey.domain_ids.length > 0) {
-    if (!apiKey.domain_ids.includes(effectiveDomainId)) {
-      throw new HTTPException(403, { message: 'Domain not on scope' });
-    }
-  }
-
-  // Generate or validate slug
   let slug = validated.slug;
   if (!slug) {
     slug = generateSlug(8);
-    // Check uniqueness
     let attempts = 0;
     while (await checkSlugExists(c.env, effectiveDomainId, slug) && attempts < 10) {
       slug = generateSlug(8);
       attempts++;
     }
-    if (attempts >= 10) {
-      throw new HTTPException(500, { message: 'Failed to generate unique slug' });
-    }
   } else {
-    if (!isValidSlug(slug)) {
-      throw new HTTPException(400, { message: 'Invalid slug format' });
-    }
-    if (isReservedSlug(slug)) {
-      throw new HTTPException(400, { message: 'Slug is reserved' });
+    if (!isValidSlug(slug) || isReservedSlug(slug)) {
+      throw new HTTPException(400, { message: 'Invalid or reserved slug.' });
     }
     if (await checkSlugExists(c.env, effectiveDomainId, slug)) {
-      throw new HTTPException(409, { message: 'Slug already exists' });
+      throw new HTTPException(409, { message: 'Slug already exists.' });
     }
   }
 
-  // Sanitize inputs
-  let title: string | undefined;
-  let description: string | undefined;
-  try {
-    title = validated.title ? sanitizeHtml(validated.title) : undefined;
-    description = validated.description ? sanitizeHtml(validated.description) : undefined;
-  } catch (error) {
-    throw new HTTPException(400, {
-      message: 'Invalid input: failed to sanitize HTML content'
-    });
-  }
+  const title = validated.title ? sanitizeHtml(validated.title) : undefined;
+  const description = validated.description ? sanitizeHtml(validated.description) : undefined;
   const destinationUrl = normalizeUrl(validated.destination_url);
 
-  // Validate category if provided
   if (validated.category_id) {
     const category = await getCategoryById(c.env, validated.category_id);
-    if (!category) {
-      throw new HTTPException(404, { message: 'Category not found' });
-    }
+    if (!category) throw new HTTPException(404, { message: 'Category not found.' });
   }
 
-  // Prepare metadata with route, deep_link, fallback_url, overlay, media_embed
-  let metadata: string | undefined = undefined;
-  if (validated.metadata || effectiveRoute || validated.deep_link || validated.fallback_url || validated.redirect_type || validated.overlay || validated.media_embed) {
-    const metadataObj = validated.metadata ? { ...validated.metadata } : {};
-    if (effectiveRoute) metadataObj.route = effectiveRoute;
-    if (validated.deep_link) metadataObj.deep_link = validated.deep_link;
-    if (validated.fallback_url) metadataObj.fallback_url = validated.fallback_url;
-    if (validated.redirect_type) metadataObj.redirect_type = validated.redirect_type;
-    if (validated.overlay) metadataObj.overlay = validated.overlay;
-    if (validated.media_embed) metadataObj.media_embed = validated.media_embed;
-    metadata = JSON.stringify(metadataObj);
+  const metadataObj = validated.metadata ? { ...validated.metadata } : {};
+  if (effectiveRoute) metadataObj.route = effectiveRoute;
+  if (validated.deep_link) metadataObj.deep_link = validated.deep_link;
+  if (validated.fallback_url) metadataObj.fallback_url = validated.fallback_url;
+  if (validated.redirect_type) metadataObj.redirect_type = validated.redirect_type;
+  if (validated.overlay) metadataObj.overlay = validated.overlay;
+  if (validated.media_embed) metadataObj.media_embed = validated.media_embed;
+
+  // Default Splash behavior for all shortened links unless disabled on purpose
+  if (!metadataObj.splash && validated.redirect_type !== 'direct') {
+    metadataObj.splash = {
+      enabled: true,
+      countdown: 5,
+      title: 'Sponsored Destination',
+      message: 'You will be redirected to your destination shortly.',
+      button_text: 'Proceed to Destination'
+    };
   }
 
-  // Resolve retargeting pixels BEFORE creating the link so a cross-domain id fails cleanly.
-  // Omitted -> the domain's default pixels.
-  const pixelIds = await resolveLinkPixelIds(c.env, effectiveDomainId, validated.pixel_ids, { applyDefaults: true })
-    .catch(rethrowPixelError);
+  const metadata = JSON.stringify(metadataObj);
+  const pixelIds = await resolveLinkPixelIds(c.env, effectiveDomainId, validated.pixel_ids, { applyDefaults: true }).catch(rethrowPixelError);
 
-  // Create link. Translate a UNIQUE(domain_id, slug) race (check-then-insert window)
-  // into a clean 409 Conflict instead of a raw 500.
   let link: Link;
   try {
     const passwordHash = validated.password ? await hashPassword(validated.password) : null;
@@ -767,24 +698,18 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
       expires_at: validated.expires_at,
       password_hash: passwordHash,
       metadata,
-      category_id: validated.category_id, // Use dedicated column
+      category_id: validated.category_id,
       click_count: 0,
       unique_visitors: 0,
       created_by: user?.id || null,
     });
   } catch (error) {
-    if (error instanceof SlugConflictError) {
-      throw new HTTPException(409, { message: 'Slug already exists' });
-    }
+    if (error instanceof SlugConflictError) throw new HTTPException(409, { message: 'Slug already exists.' });
     throw error;
   }
 
-  // Set tags if provided
-  if (validated.tags && validated.tags.length > 0) {
-    await setLinkTags(c.env, link.id, validated.tags);
-  }
+  if (validated.tags && validated.tags.length > 0) await setLinkTags(c.env, link.id, validated.tags);
 
-  // Save all redirects
   await saveLinkRedirects(c.env, link.id, {
     geo_redirects: validated.geo_redirects as any,
     device_redirects: validated.device_redirects,
@@ -792,24 +717,15 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
     os_redirects: validated.os_redirects,
   });
 
-  // Save Open Graph / Twitter Card metadata only when it carries a real preview
-  // field. og_meta:{} still validates (og_type/twitter_card default), so guard on
-  // title/description/image — matching the PUT path — to avoid a meaningless row
-  // that would route bots to an empty preview page.
   if (validated.og_meta && (validated.og_meta.og_title || validated.og_meta.og_description || validated.og_meta.og_image)) {
     await upsertOgMeta(c.env, link.id, validated.og_meta);
   }
 
-  // Attach library pixels (explicit list or the domain's defaults)
-  if (pixelIds && pixelIds.length > 0) {
-    await saveLinkExtras(c.env, link.id, { pixel_ids: pixelIds });
-  }
+  if (pixelIds && pixelIds.length > 0) await saveLinkExtras(c.env, link.id, { pixel_ids: pixelIds });
 
-  // Build and set cache
   const cachedLink = await buildCachedLink(c.env, link, domain);
   await setCachedLink(c.env, domain.domain_name, link.slug, cachedLink);
 
-  // Fetch fresh data for response
   const [geoRedirects, deviceRedirects, cityRedirects, osRedirects, ogMeta, pixels] = await Promise.all([
     getGeoRedirects(c.env, link.id),
     getDeviceRedirects(c.env, link.id),
@@ -819,18 +735,8 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
     getLinkPixels(c.env, link.id),
   ]);
 
-  // Get link with tags
   const tags = await getLinkTags(c.env, link.id);
-  const linkWithTags = {
-    ...link,
-    tags,
-    geo_redirects: geoRedirects,
-    device_redirects: deviceRedirects,
-    city_redirects: cityRedirects,
-    os_redirects: osRedirects,
-    og_meta: ogMeta,
-    pixels,
-  };
+  const linkWithTags = { ...link, tags, geo_redirects: geoRedirects, device_redirects: deviceRedirects, city_redirects: cityRedirects, os_redirects: osRedirects, og_meta: ogMeta, pixels };
 
   return c.json({ success: true, data: linkWithTags }, 201);
 });
@@ -840,92 +746,43 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
   const id = c.req.param('id');
   const validated = c.req.valid('json');
 
-  // Use getLinkByIdIncludingDeleted to allow restoring deleted links
   const existingLink = await getLinkByIdIncludingDeleted(c.env, id);
-  if (!existingLink) {
-    throw new HTTPException(404, { message: 'Link not found' });
-  }
+  if (!existingLink) throw new HTTPException(404, { message: 'Link not found' });
 
-  // Check API key domain scoping
   const apiKey = (c as any).get?.('apiKey') as ApiKeyContext | undefined;
   if (apiKey && apiKey.domain_ids && apiKey.domain_ids.length > 0) {
-    if (!apiKey.domain_ids.includes(existingLink.domain_id)) {
-      throw new HTTPException(403, { message: 'Domain not on scope' });
-    }
+    if (!apiKey.domain_ids.includes(existingLink.domain_id)) throw new HTTPException(403, { message: 'Domain not on scope' });
   }
 
-  // Sanitize inputs
   const updates: Parameters<typeof updateLink>[2] = {};
   if (validated.destination_url) {
-    if (!isValidUrl(validated.destination_url)) {
-      throw new HTTPException(400, { message: 'Invalid destination URL' });
-    }
+    if (!isValidUrl(validated.destination_url)) throw new HTTPException(400, { message: 'Invalid destination URL' });
     updates.destination_url = normalizeUrl(validated.destination_url);
-
-    // Check for infinite redirect loop
-    if (await isInfiniteRedirect(c.env, updates.destination_url)) {
-      throw new HTTPException(400, {
-        message: 'Destination URL cannot point to a reserved route on a managed domain (infinite redirect loop).'
-      });
-    }
+    if (await isInfiniteRedirect(c.env, updates.destination_url)) throw new HTTPException(400, { message: 'Infinite redirect loop.' });
   }
-  if (validated.title !== undefined) {
-    try {
-      updates.title = validated.title ? sanitizeHtml(validated.title) : undefined;
-    } catch (error) {
-      throw new HTTPException(400, {
-        message: 'Invalid input: failed to sanitize title'
-      });
-    }
-  }
-  if (validated.description !== undefined) {
-    try {
-      updates.description = validated.description ? sanitizeHtml(validated.description) : undefined;
-    } catch (error) {
-      throw new HTTPException(400, {
-        message: 'Invalid input: failed to sanitize description'
-      });
-    }
-  }
-  if (validated.redirect_code !== undefined) {
-    updates.redirect_code = validated.redirect_code;
-  }
-  if (validated.status !== undefined) {
-    updates.status = validated.status;
-  }
-  if (validated.expires_at !== undefined) {
-    updates.expires_at = validated.expires_at;
-  }
+  if (validated.title !== undefined) updates.title = validated.title ? sanitizeHtml(validated.title) : undefined;
+  if (validated.description !== undefined) updates.description = validated.description ? sanitizeHtml(validated.description) : undefined;
+  if (validated.redirect_code !== undefined) updates.redirect_code = validated.redirect_code;
+  if (validated.status !== undefined) updates.status = validated.status;
+  if (validated.expires_at !== undefined) updates.expires_at = validated.expires_at;
   if (validated.category_id !== undefined) {
-    // Validate category if provided
     if (validated.category_id) {
       const category = await getCategoryById(c.env, validated.category_id);
-      if (!category) {
-        throw new HTTPException(404, { message: 'Category not found' });
-      }
+      if (!category) throw new HTTPException(404, { message: 'Category not found' });
     }
-    // Store category_id in dedicated column (optimization #4)
     updates.category_id = validated.category_id;
   }
 
-  // Handle route update
   if (validated.route !== undefined) {
     const domain = await getDomainById(c.env, existingLink.domain_id);
     if (domain) {
-      const validRoutes = (domain.routes && domain.routes.length > 0)
-        ? domain.routes
-        : [domain.routing_path || '/*'];
-      if (!validRoutes.includes(validated.route)) {
-        throw new HTTPException(400, { message: 'Invalid route for this domain' });
-      }
+      if (!domain.routes?.includes(validated.route) && validated.route !== (domain.routing_path || '/*')) throw new HTTPException(400, { message: 'Invalid route' });
       const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
       updates.metadata = JSON.stringify({ ...currentMetadata, route: validated.route });
     }
   }
 
-  if (validated.password !== undefined) {
-    updates.password_hash = validated.password ? await hashPassword(validated.password) : null;
-  }
+  if (validated.password !== undefined) updates.password_hash = validated.password ? await hashPassword(validated.password) : null;
 
   if (validated.metadata !== undefined) {
     const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
@@ -937,295 +794,82 @@ linksRouter.put('/:id', authOrApiKeyMiddleware, requireLinkAccess('edit'), valid
     updates.metadata = JSON.stringify({ ...currentMetadata, deep_link: validated.deep_link });
   }
 
-  if (validated.fallback_url !== undefined) {
-    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
-    updates.metadata = JSON.stringify({ ...currentMetadata, fallback_url: validated.fallback_url });
-  }
-
-  if (validated.redirect_type !== undefined) {
-    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
-    updates.metadata = JSON.stringify({ ...currentMetadata, redirect_type: validated.redirect_type });
-  }
-
-  if (validated.overlay !== undefined) {
-    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
-    updates.metadata = JSON.stringify({ ...currentMetadata, overlay: validated.overlay });
-  }
-
-  if (validated.media_embed !== undefined) {
-    const currentMetadata = updates.metadata ? JSON.parse(updates.metadata) : (existingLink.metadata ? JSON.parse(existingLink.metadata) : {});
-    updates.metadata = JSON.stringify({ ...currentMetadata, media_embed: validated.media_embed });
-  }
-
-  // Validate pixel ids against the link's own domain before writing anything.
-  const pixelIds = await resolveLinkPixelIds(c.env, existingLink.domain_id, validated.pixel_ids, { applyDefaults: false })
-    .catch(rethrowPixelError);
-
+  const pixelIds = await resolveLinkPixelIds(c.env, existingLink.domain_id, validated.pixel_ids, { applyDefaults: false }).catch(rethrowPixelError);
   await updateLink(c.env, id, updates);
+  if (validated.tags !== undefined) await setLinkTags(c.env, id, validated.tags);
+  if (validated.geo_redirects !== undefined) { await clearAllGeoRedirects(c.env, id); await saveLinkRedirects(c.env, id, { geo_redirects: validated.geo_redirects as any }); }
+  if (validated.device_redirects !== undefined) { await clearAllDeviceRedirects(c.env, id); await saveLinkRedirects(c.env, id, { device_redirects: validated.device_redirects }); }
+  if (validated.city_redirects !== undefined) { await clearAllCityRedirects(c.env, id); await saveLinkRedirects(c.env, id, { city_redirects: validated.city_redirects as any }); }
+  if (validated.os_redirects !== undefined) { await clearAllOsRedirects(c.env, id); await saveLinkRedirects(c.env, id, { os_redirects: validated.os_redirects }); }
 
-  // Update tags if provided
-  if (validated.tags !== undefined) {
-    await setLinkTags(c.env, id, validated.tags);
-  }
-
-  // Update geo redirects if provided
-  if (validated.geo_redirects !== undefined) {
-    // Clear existing and add new
-    await clearAllGeoRedirects(c.env, id);
-    await saveLinkRedirects(c.env, id, { geo_redirects: validated.geo_redirects as any });
-  }
-
-  // Update device redirects if provided
-  if (validated.device_redirects !== undefined) {
-    await clearAllDeviceRedirects(c.env, id);
-    await saveLinkRedirects(c.env, id, { device_redirects: validated.device_redirects });
-  }
-
-  // Update city redirects if provided
-  if (validated.city_redirects !== undefined) {
-    await clearAllCityRedirects(c.env, id);
-    await saveLinkRedirects(c.env, id, { city_redirects: validated.city_redirects as any });
-  }
-
-  // Update os redirects if provided
-  if (validated.os_redirects !== undefined) {
-    await clearAllOsRedirects(c.env, id);
-    await saveLinkRedirects(c.env, id, { os_redirects: validated.os_redirects });
-  }
-
-  // Update Open Graph metadata and retargeting pixels if provided (an empty og_meta or
-  // an empty pixel_ids array removes them).
   await saveLinkExtras(c.env, id, { og_meta: validated.og_meta, pixel_ids: pixelIds });
 
-  // Get updated link with tags and category
   const updatedLink = await getLinkById(c.env, id);
-  if (!updatedLink) {
-    throw new HTTPException(404, { message: 'Link not found' });
-  }
+  if (!updatedLink) throw new HTTPException(404, { message: 'Link not found' });
 
-  const tags = await getLinkTags(c.env, id);
-  let category = undefined;
-  if (updatedLink.category_id) {
-    category = await getCategoryById(c.env, updatedLink.category_id);
-  }
-
-  // Rebuild cache with updated data. If the link is no longer active
-  // (archived/expired/deleted/inactive), DELETE the cache entry instead of
-  // re-caching an active-looking one — otherwise a disabled link keeps
-  // redirecting from the cache-hit path forever.
   const domain = await getDomainById(c.env, existingLink.domain_id);
   if (domain) {
-    if (updatedLink.status !== 'active') {
-      await deleteCachedLink(c.env, domain.domain_name, existingLink.slug);
-    } else {
-      const cachedLink = await buildCachedLink(c.env, updatedLink, domain);
-      await setCachedLink(c.env, domain.domain_name, existingLink.slug, cachedLink);
-    }
+    if (updatedLink.status !== 'active') await deleteCachedLink(c.env, domain.domain_name, existingLink.slug);
+    else await setCachedLink(c.env, domain.domain_name, existingLink.slug, await buildCachedLink(c.env, updatedLink, domain));
   }
 
-  // Fetch fresh data for response
-  const [geoRedirects, deviceRedirects, cityRedirects, osRedirects, ogMeta, pixels] = await Promise.all([
-    getGeoRedirects(c.env, id),
-    getDeviceRedirects(c.env, id),
-    getCityRedirects(c.env, id),
-    getOsRedirects(c.env, id),
-    getOgMeta(c.env, id),
-    getLinkPixels(c.env, id),
-  ]);
+  const fresh = await Promise.all([getGeoRedirects(c.env, id), getDeviceRedirects(c.env, id), getCityRedirects(c.env, id), getOsRedirects(c.env, id), getOgMeta(c.env, id), getLinkPixels(c.env, id)]);
+  const tags = await getLinkTags(c.env, id);
+  let category = updatedLink.category_id ? await getCategoryById(c.env, updatedLink.category_id) : undefined;
 
-  const linkWithTags = {
-    ...updatedLink,
-    tags,
-    category,
-    geo_redirects: geoRedirects,
-    device_redirects: deviceRedirects,
-    city_redirects: cityRedirects,
-    os_redirects: osRedirects,
-    og_meta: ogMeta,
-    pixels,
-  };
-
-  return c.json({ success: true, data: linkWithTags });
+  return c.json({ success: true, data: { ...updatedLink, tags, category, geo_redirects: fresh[0], device_redirects: fresh[1], city_redirects: fresh[2], os_redirects: fresh[3], og_meta: fresh[4], pixels: fresh[5] } });
 });
 
 // Delete link
 linksRouter.delete('/:id', authOrApiKeyMiddleware, requireLinkAccess('delete'), async (c) => {
   const id = c.req.param('id');
   const hardDelete = c.req.query('hard') === 'true';
-
-  // Use getLinkByIdIncludingDeleted to check if link exists (including deleted ones)
-  // If already deleted and not hard delete, return 404
   const existingLink = await getLinkByIdIncludingDeleted(c.env, id);
-  if (!existingLink) {
-    throw new HTTPException(404, { message: 'Link not found' });
-  }
+  if (!existingLink || (existingLink.status === 'deleted' && !hardDelete)) throw new HTTPException(404, { message: 'Link not found' });
 
-  // If already soft-deleted and not hard delete, return 404
-  if (existingLink.status === 'deleted' && !hardDelete) {
-    throw new HTTPException(404, { message: 'Link not found' });
-  }
-
-  // Check API key domain scoping
   const apiKey = (c as any).get?.('apiKey') as ApiKeyContext | undefined;
-  if (apiKey && apiKey.domain_ids && apiKey.domain_ids.length > 0) {
-    if (!apiKey.domain_ids.includes(existingLink.domain_id)) {
-      throw new HTTPException(403, { message: 'Domain not on scope' });
-    }
+  if (apiKey?.domain_ids?.length && !apiKey.domain_ids.includes(existingLink.domain_id)) throw new HTTPException(403, { message: 'Domain not on scope' });
+
+  if (await deleteLink(c.env, id, hardDelete)) {
+    const domain = await getDomainById(c.env, existingLink.domain_id);
+    if (domain) await deleteCachedLink(c.env, domain.domain_name, existingLink.slug);
+    return c.json({ success: true, message: 'Link deleted' });
   }
-
-  const success = await deleteLink(c.env, id, hardDelete);
-
-  if (!success) {
-    throw new HTTPException(500, { message: 'Failed to delete link' });
-  }
-
-  // Invalidate cache
-  const domain = await getDomainById(c.env, existingLink.domain_id);
-  if (domain) {
-    await deleteCachedLink(c.env, domain.domain_name, existingLink.slug);
-  }
-
-  return c.json({ success: true, message: 'Link deleted' });
+  throw new HTTPException(500, { message: 'Failed to delete link' });
 });
 
-// Bulk operations (logic lives in services/bulkLinks.ts)
+// Bulk operations
 linksRouter.post('/bulk', authOrApiKeyMiddleware, requirePermission('edit_links'), async (c) => {
   const body = await c.req.json();
   const parsed = parseBulkRequest(body);
-  if (!parsed.ok) {
-    throw new HTTPException(400, { message: (parsed as any).message });
-  }
+  if (!parsed.ok) throw new HTTPException(400, { message: (parsed as any).message });
   const apiKey = (c as any).get?.('apiKey') as ApiKeyContext | undefined;
   const user = (c as any).get?.('user') as User | undefined;
-  const results = await runBulk(c.env, { user, apiKey }, parsed.request);
-  return c.json({ success: true, data: results });
+  return c.json({ success: true, data: await runBulk(c.env, { user, apiKey }, parsed.request) });
 });
 
-// Status Check Endpoints
-
-// Get links by status code
+// Status Check
 linksRouter.get('/status/:statusCode', authMiddleware, async (c) => {
   const statusCode = parseInt(c.req.param('statusCode'));
   const domainId = c.req.query('domain_id');
-  const destinationUrl = c.req.query('destination_url');
-  const limitParam = c.req.query('limit');
-  const offsetParam = c.req.query('offset');
-
-  if (isNaN(statusCode)) {
-    throw new HTTPException(400, { message: 'Invalid status code' });
-  }
-
-  const limit = limitParam ? Math.min(Math.max(parseInt(limitParam) || 25, 1), 500) : 25;
-  const offset = offsetParam ? Math.max(parseInt(offsetParam) || 0, 0) : 0;
-
-  // Constrain to the caller's accessible domains (reject inaccessible explicit domain_id).
   const accessibleDomainIds = await resolveAccessibleDomainConstraint(c, domainId || undefined);
-
   const { getLinksByStatusCode, getStatusSummary } = await import('../db/links');
-  const { links, total } = await getLinksByStatusCode(c.env, statusCode, {
-    domainIds: accessibleDomainIds,
-    domainId: domainId || undefined,
-    destinationUrl: destinationUrl || undefined,
-    limit,
-    offset,
-  });
-
-  // Get status summary
+  const { links, total } = await getLinksByStatusCode(c.env, statusCode, { domainIds: accessibleDomainIds, domainId: domainId || undefined, limit: 25 });
   const statusSummary = await getStatusSummary(c.env, domainId || undefined, accessibleDomainIds);
-
-  return c.json({
-    success: true,
-    data: links,
-    pagination: {
-      limit,
-      offset,
-      count: links.length,
-      total,
-      has_more: offset + limit < total,
-    },
-    status_summary: statusSummary,
-  });
+  return c.json({ success: true, data: links, pagination: { total, count: links.length }, status_summary: statusSummary });
 });
 
-
-// Manual status check trigger
 linksRouter.post('/check-status', authMiddleware, async (c) => {
   const user = (c as any).get?.('user') as User | undefined;
-
-  if (!user) {
-    throw new HTTPException(401, { message: 'Authentication required' });
-  }
-
+  if (!user) throw new HTTPException(401, { message: 'Auth required' });
   const body = await c.req.json().catch(() => ({}));
-  const linkIds = body.link_ids as string[] | undefined;
-
   const { checkLinksBatch } = await import('../services/status-check');
   const { getStatusCheckFrequencyOrDefault } = await import('../db/settings');
-  const { getFrequencyInMs } = await import('../types');
-
   const settings = await getStatusCheckFrequencyOrDefault(c.env);
-  const frequencyMs = getFrequencyInMs(settings.frequency);
-
-  const isGlobalAdmin = ['admin', 'owner', 'editor'].includes(user.role) || user.global_access;
-
-  let links: Link[];
-  if (linkIds && linkIds.length > 0) {
-    // Check specific links
-    const placeholders = linkIds.map(() => '?').join(',');
-    if (isGlobalAdmin) {
-      const result = await c.env.DB.prepare(
-        `SELECT * FROM links WHERE id IN (${placeholders}) AND status != 'deleted'`
-      ).bind(...linkIds).all<Link>();
-      links = result.results || [];
-    } else {
-      const result = await c.env.DB.prepare(
-        `SELECT * FROM links WHERE id IN (${placeholders}) AND status != 'deleted' AND created_by = ?`
-      ).bind(...linkIds, user.id).all<Link>();
-      links = result.results || [];
-    }
-  } else {
-    // Manual trigger: check all non-deleted links up to batch_size
-    const batchLimit = settings.batch_size || 100;
-    if (isGlobalAdmin) {
-      const result = await c.env.DB.prepare(
-        `SELECT * FROM links 
-         WHERE status != 'deleted' 
-         ORDER BY CASE WHEN last_status_check_at IS NULL THEN 0 ELSE 1 END, 
-                  last_status_check_at ASC 
-         LIMIT ?`
-      ).bind(batchLimit).all<Link>();
-      links = result.results || [];
-    } else {
-      const result = await c.env.DB.prepare(
-        `SELECT * FROM links 
-         WHERE status != 'deleted' AND created_by = ? 
-         ORDER BY CASE WHEN last_status_check_at IS NULL THEN 0 ELSE 1 END, 
-                  last_status_check_at ASC 
-         LIMIT ?`
-      ).bind(user.id, batchLimit).all<Link>();
-      links = result.results || [];
-    }
-  }
-
-  if (links.length === 0) {
-    return c.json({
-      success: true,
-      message: 'No links to check',
-      data: { checked: 0 },
-    });
-  }
-
-  const results = await checkLinksBatch(links, c.env, frequencyMs);
-
-  return c.json({
-    success: true,
-    message: `Checked ${results.length} links`,
-    data: {
-      checked: results.length,
-      results: results.slice(0, 50), // Return first 50 results
-    },
-  });
+  const isGlobalAdmin = ['admin', 'owner'].includes(user.role) || user.global_access;
+  const result = await c.env.DB.prepare(`SELECT * FROM links WHERE status != 'deleted' ${isGlobalAdmin ? '' : 'AND created_by = ?'} LIMIT ?`).bind(...(isGlobalAdmin ? [settings.batch_size || 100] : [user.id, settings.batch_size || 100])).all<Link>();
+  const results = await checkLinksBatch(result.results || [], c.env, 0);
+  return c.json({ success: true, data: { checked: results.length } });
 });
 
 export { linksRouter };
-

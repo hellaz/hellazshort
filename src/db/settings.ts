@@ -267,6 +267,7 @@ export interface RootPageSettings {
   mode: RootPageMode;
   html: string;
   redirect_url: string;
+  pages?: Record<string, string>;
   last_updated_at?: number;
   last_updated_by?: string;
 }
@@ -284,10 +285,13 @@ export async function getRootPageSettings(env: Env): Promise<RootPageSettings | 
     const parsed = JSON.parse(result.value) as Partial<RootPageSettings>;
     const mode: RootPageMode =
       parsed.mode === 'html' || parsed.mode === 'redirect' ? parsed.mode : 'branded';
+    const pages: Record<string, string> =
+      parsed.pages && typeof parsed.pages === 'object' ? parsed.pages : {};
     return {
       mode,
       html: typeof parsed.html === 'string' ? parsed.html : '',
       redirect_url: typeof parsed.redirect_url === 'string' ? parsed.redirect_url : '',
+      pages,
       last_updated_at: result.updated_at,
       last_updated_by: result.updated_by || undefined,
     };
@@ -299,12 +303,12 @@ export async function getRootPageSettings(env: Env): Promise<RootPageSettings | 
 export async function getRootPageSettingsOrDefault(env: Env): Promise<RootPageSettings> {
   const setting = await getRootPageSettings(env);
   if (setting) return setting;
-  return { mode: 'branded', html: '', redirect_url: '' };
+  return { mode: 'branded', html: '', redirect_url: '', pages: {} };
 }
 
 export async function setRootPageSettings(
   env: Env,
-  settings: { mode: RootPageMode; html: string; redirect_url: string },
+  settings: { mode: RootPageMode; html: string; redirect_url: string; pages?: Record<string, string> },
   userId: string
 ): Promise<void> {
   const now = Date.now();
@@ -312,6 +316,7 @@ export async function setRootPageSettings(
     mode: settings.mode,
     html: settings.html,
     redirect_url: settings.redirect_url,
+    pages: settings.pages || {},
   });
 
   await env.DB.prepare(
@@ -446,4 +451,81 @@ export async function setBotProtectionSettings(
      WHERE domain_id IS NULL`
   ).bind(value, now, userId).run();
 }
+
+export interface AdNetworkSettings {
+  enabled: boolean;
+  provider: 'adsense' | 'custom' | 'none';
+  adsense_client_id: string;
+  adsense_slot_id: string;
+  custom_ad_code: string;
+  tier1_cpm: number;
+  tier2_cpm: number;
+  tier3_cpm: number;
+}
+
+export async function getAdNetworkSettingsOrDefault(env: Env): Promise<AdNetworkSettings> {
+  const result = await env.DB.prepare(
+    `SELECT value FROM settings WHERE key = 'ad_network_settings' AND domain_id IS NULL`
+  ).first<{ value: string }>();
+
+  if (!result) {
+    return {
+      enabled: true,
+      provider: 'adsense',
+      adsense_client_id: '',
+      adsense_slot_id: '',
+      custom_ad_code: '',
+      tier1_cpm: 5.0,
+      tier2_cpm: 3.0,
+      tier3_cpm: 1.5,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(result.value);
+    return {
+      enabled: parsed.enabled ?? true,
+      provider: parsed.provider || 'adsense',
+      adsense_client_id: parsed.adsense_client_id || '',
+      adsense_slot_id: parsed.adsense_slot_id || '',
+      custom_ad_code: parsed.custom_ad_code || '',
+      tier1_cpm: typeof parsed.tier1_cpm === 'number' ? parsed.tier1_cpm : 5.0,
+      tier2_cpm: typeof parsed.tier2_cpm === 'number' ? parsed.tier2_cpm : 3.0,
+      tier3_cpm: typeof parsed.tier3_cpm === 'number' ? parsed.tier3_cpm : 1.5,
+    };
+  } catch {
+    return {
+      enabled: true,
+      provider: 'adsense',
+      adsense_client_id: '',
+      adsense_slot_id: '',
+      custom_ad_code: '',
+      tier1_cpm: 5.0,
+      tier2_cpm: 3.0,
+      tier3_cpm: 1.5,
+    };
+  }
+}
+
+export async function setAdNetworkSettings(
+  env: Env,
+  settings: Partial<AdNetworkSettings>,
+  userId: string
+): Promise<void> {
+  const now = Date.now();
+  const current = await getAdNetworkSettingsOrDefault(env);
+  const updated = { ...current, ...settings };
+  const value = JSON.stringify(updated);
+
+  await env.DB.prepare(
+    `INSERT INTO settings (key, value, domain_id, updated_at, updated_by)
+     VALUES ('ad_network_settings', ?, NULL, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       value = excluded.value,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by
+     WHERE domain_id IS NULL`
+  ).bind(value, now, userId).run();
+}
+
 

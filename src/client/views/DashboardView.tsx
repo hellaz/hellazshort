@@ -33,6 +33,7 @@ import {
   Laptop,
   Building,
   Share2,
+  Settings,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -311,8 +312,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setTwitterCard('summary_large_image');
     setFetchingOg(false);
 
-    // Splash
-    setSplashEnabled(false);
+
     setSplashCountdown(5);
     setSplashTitle('Sponsored Destination');
     setSplashMessage('You will be redirected to your destination shortly.');
@@ -2057,7 +2057,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 )}
               </div>
 
-              {/* Splash Page Interstitial (Monetization & Announcements) */}
+              {/* Splash Page Interstitial (Sponsorship & Announcements) */}
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                 <button
                   type="button"
@@ -2066,7 +2066,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <Timer className="w-4 h-4 text-amber-500" />
-                    <span>Splash Page Interstitial (Monetization &amp; Ads)</span>
+                    <span>Splash Page Interstitial (Sponsorship &amp; Ads)</span>
                     {splashEnabled && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-bold">
                         Active ({splashCountdown}s)
