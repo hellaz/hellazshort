@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Custom Domain Routes
 routes = [
-  { pattern = "urlz.eu.org/*", custom_domain = true }
+  { pattern = "urlz.eu.org", custom_domain = true }
 ]
 
 # Static Assets (React SPA)
