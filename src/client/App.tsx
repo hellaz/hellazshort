@@ -20,12 +20,14 @@ import { AboutView } from './views/AboutView';
 import { ContactView } from './views/ContactView';
 import { LegalView } from './views/LegalView';
 import { ReportAbuseModal } from './views/ReportAbuseModal';
+import { RootPageView } from './views/RootPageView';
 import { DashboardHelpPanel } from './components/DashboardHelpPanel';
 
 export const AppContent: React.FC = () => {
   const { showToast } = useToast();
 
   const [user, setUser] = useState<User | null>(null);
+  const [simulatedRole, setSimulatedRole] = useState<'owner' | 'admin' | 'pro' | 'user' | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [currentPage, setCurrentPage] = useState<string>('landing');
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register' | 'setup'>('login');
@@ -455,6 +457,8 @@ export const AppContent: React.FC = () => {
         }}
         onNavigate={(p) => setCurrentPage(p)}
         adConfig={publicPagesConfig.ad_settings}
+        simulatedRole={simulatedRole}
+        onSimulateRole={setSimulatedRole}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -463,7 +467,7 @@ export const AppContent: React.FC = () => {
           onNavigate={(p) => setCurrentPage(p)}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
-          userRole={user?.role}
+          userRole={simulatedRole || user?.role}
           onCreateLinkClick={() => {
             if (currentPage !== 'dashboard') {
               setCurrentPage('dashboard');
@@ -473,6 +477,24 @@ export const AppContent: React.FC = () => {
         />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {/* Simulated Role Notice Banner */}
+          {simulatedRole && simulatedRole !== user?.role && (
+            <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span>👁️</span>
+                <span>
+                  Simulating dashboard view as <strong>{simulatedRole === 'user' ? 'Free Community Tier (10 Links Quota)' : 'Paid / Pro Member (Unlimited Links)'}</strong>
+                </span>
+              </span>
+              <button
+                onClick={() => setSimulatedRole(null)}
+                className="underline hover:text-white cursor-pointer font-bold"
+              >
+                Reset to Admin View
+              </button>
+            </div>
+          )}
+
           {/* Main Dashboard: Links management */}
           {currentPage === 'dashboard' && (
             <DashboardView
@@ -483,6 +505,8 @@ export const AppContent: React.FC = () => {
               }}
               createModalOpen={createModalOpen}
               onCloseCreateModal={() => setCreateModalOpen(false)}
+              userRole={simulatedRole || user?.role}
+              onNavigate={(p) => setCurrentPage(p)}
             />
           )}
 
@@ -503,12 +527,23 @@ export const AppContent: React.FC = () => {
             <DomainsView domains={domains} onRefresh={fetchDomains} />
           )}
 
+          {/* Root Domain & Public Pages CMS */}
+          {currentPage === 'root-page' && (
+            <RootPageView
+              onNavigate={(p) => setCurrentPage(p)}
+              publicPagesConfig={publicPagesConfig}
+            />
+          )}
+
           {/* Pixels */}
           {currentPage === 'pixels' && <PixelsView />}
 
           {/* Monetization & Revenue */}
           {currentPage === 'monetization' && (
-            <MonetizationView user={user} onNavigate={(p) => setCurrentPage(p)} />
+            <MonetizationView
+              user={user ? { ...user, role: simulatedRole === 'pro' ? 'user' : (simulatedRole || user.role) } : null}
+              onNavigate={(p) => setCurrentPage(p)}
+            />
           )}
 
           {/* Integrations */}
@@ -521,6 +556,7 @@ export const AppContent: React.FC = () => {
             <SettingsView
               user={user}
               subPage={currentPage.replace('settings-', '')}
+              onNavigate={(p) => setCurrentPage(p)}
               onUserUpdated={async () => {
                 const res = await apiRequest('auth/me');
                 if (res.success && res.data) setUser(res.data);

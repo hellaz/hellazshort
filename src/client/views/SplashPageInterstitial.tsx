@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Timer, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Timer, ArrowRight, ShieldCheck, Sparkles, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { BrandLogo } from '../components/BrandLogo';
 import { SkyscraperAd, AdNetworkConfig } from '../components/AdBannerComponents';
 import { apiRequest } from '../api';
@@ -12,6 +13,7 @@ interface SplashPageInterstitialProps {
   customMessage?: string;
   countdownSeconds?: number;
   adConfig?: AdNetworkConfig;
+  showQr?: boolean;
 }
 
 export const SplashPageInterstitial: React.FC<SplashPageInterstitialProps> = ({
@@ -108,6 +110,31 @@ export const SplashPageInterstitial: React.FC<SplashPageInterstitialProps> = ({
                 <p className="text-xs text-slate-500 mt-2 font-mono truncate max-w-sm mx-auto">
                   Target: {destinationUrl}
                 </p>
+              </div>
+            )}
+
+            {/* Mobile Scan QR Code */}
+            {showQr !== false && (
+              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-left">
+                <div className="bg-white p-2 rounded-xl shrink-0 shadow-md">
+                  <QRCodeSVG
+                    value={typeof window !== 'undefined' ? window.location.href : `https://urlz.eu.org/${slug}`}
+                    size={72}
+                    level="M"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <QrCode className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Scan with Phone</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+                    Open destination directly on mobile while waiting
+                  </p>
+                  <span className="text-[10px] font-mono text-indigo-400 truncate block mt-1">
+                    /{slug}
+                  </span>
+                </div>
               </div>
             )}
           </div>

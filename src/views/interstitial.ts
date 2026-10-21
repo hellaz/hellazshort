@@ -82,17 +82,24 @@ export function renderSplashPage(
     countdown?: number;
     message?: string;
     banner_url?: string;
+    banner_link?: string;
     ad_code?: string;
     button_text?: string;
+    show_qr?: boolean;
+    short_url?: string;
   },
   destinationUrl: string,
-  nonce?: string
+  nonce?: string,
+  shortUrlParam?: string
 ): string {
   // Enforce default maximum 10s countdown
   const countdown = Math.min(Math.max(Number(splash.countdown) || 5, 1), 10);
   const title = escapeHtml(splash.title || 'Sponsored Destination');
   const customMessage = escapeHtml(splash.message || 'Your destination link will be ready when the countdown completes.');
   const bannerUrl = splash.banner_url ? escapeHtml(splash.banner_url) : '';
+  const bannerLink = splash.banner_link ? escapeHtml(splash.banner_link) : '';
+  const shortUrl = shortUrlParam || splash.short_url || '';
+  const showQr = splash.show_qr !== false && Boolean(shortUrl);
   const adCode = splash.ad_code ? splash.ad_code : `<div style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px dashed #6366f1; border-radius: 16px; padding: 1.5rem; text-align: center; color: #a5b4fc; font-size: 0.85rem;"><div style="font-weight: 700; margin-bottom: 0.25rem; color: #fff;">Sponsored Ad Unit</div><div>728×90 Leaderboard / Responsive Banner</div></div>`;
   const buttonText = escapeHtml(splash.button_text || 'Get Link');
   const safeDest = escapeHtml(destinationUrl);
@@ -117,6 +124,15 @@ export function renderSplashPage(
     h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.75rem; }
     .banner { width: 100%; max-height: 180px; object-fit: cover; border-radius: 16px; margin-bottom: 1.25rem; border: 1px solid #334155; }
     
+    /* QR Code Card on Splash Page */
+    .qr-container { display: flex; align-items: center; gap: 14px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 12px 16px; margin-bottom: 1.25rem; text-align: left; }
+    .qr-frame { background: #ffffff; padding: 6px; border-radius: 12px; display: flex; align-items: center; justify-content: center; shrink-0; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .qr-frame img { display: block; border-radius: 6px; }
+    .qr-text { flex: 1; min-width: 0; }
+    .qr-title { font-weight: 700; font-size: 0.85rem; color: #fff; display: flex; align-items: center; gap: 4px; }
+    .qr-desc { font-size: 0.75rem; color: #94a3b8; line-height: 1.35; margin-top: 2px; }
+    .qr-slug { font-family: monospace; font-size: 0.7rem; color: #818cf8; margin-top: 4px; word-break: break-all; }
+
     /* Anti-Fraud Standards: Clear 11px gray label and strict minimum 150px buffer between ad and action button */
     .ad-wrapper { width: 100%; margin-bottom: 150px; text-align: center; }
     .ad-label { font-size: 11px; color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600; }
@@ -146,7 +162,20 @@ export function renderSplashPage(
         <span id="countdown" class="timer">${countdown}s</span>
       </div>
     </div>
-    ${bannerUrl ? `<img src="${bannerUrl}" alt="Banner" class="banner" />` : ''}
+    ${bannerUrl ? (bannerLink ? `<a href="${bannerLink}" target="_blank" rel="noopener"><img src="${bannerUrl}" alt="Banner" class="banner" /></a>` : `<img src="${bannerUrl}" alt="Banner" class="banner" />`) : ''}
+
+    ${showQr ? `
+    <div class="qr-container">
+      <div class="qr-frame">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&amp;margin=6&amp;data=${encodeURIComponent(shortUrl)}" alt="Scan QR Code to open on mobile" width="88" height="88" loading="lazy" />
+      </div>
+      <div class="qr-text">
+        <div class="qr-title">📱 Scan with Phone</div>
+        <div class="qr-desc">Take this link on mobile while the countdown finishes</div>
+        <div class="qr-slug">${escapeHtml(shortUrl)}</div>
+      </div>
+    </div>
+    ` : ''}
 
     <!-- Dynamic Ad Container with 11px gray label and strict minimum 150px separation buffer -->
     <div class="ad-wrapper">

@@ -15,6 +15,8 @@ interface NavbarProps {
   onCreateLinkClick: () => void;
   onNavigate: (page: string) => void;
   adConfig?: AdNetworkConfig;
+  simulatedRole?: 'owner' | 'admin' | 'pro' | 'user' | null;
+  onSimulateRole?: (role: 'owner' | 'admin' | 'pro' | 'user' | null) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,7 +30,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCreateLinkClick,
   onNavigate,
   adConfig,
+  simulatedRole,
+  onSimulateRole,
 }) => {
+  const effectiveRole = simulatedRole || user?.role || 'user';
+  const roleBadge =
+    effectiveRole === 'user' ? 'Free' : effectiveRole === 'pro' ? 'Pro' : 'Admin';
+
   return (
     <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
       <div className="flex items-center justify-between px-4 sm:px-6 h-16">
@@ -39,8 +47,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 text-left focus:outline-hidden cursor-pointer"
           >
             <BrandLogo variant="auto" size="md" />
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 font-semibold uppercase tracking-wider">
-              Pro
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                effectiveRole === 'user'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800/40'
+                  : effectiveRole === 'pro'
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300'
+                  : 'bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300'
+              }`}
+            >
+              {roleBadge}
             </span>
           </button>
         </div>
@@ -50,6 +66,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Controls */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Admin Role Simulation Switcher */}
+          {(user?.role === 'owner' || user?.role === 'admin') && onSimulateRole && (
+            <div className="relative hidden sm:block">
+              <select
+                value={simulatedRole || user.role}
+                onChange={(e) => {
+                  const val = e.target.value as any;
+                  onSimulateRole(val === user.role ? null : val);
+                }}
+                className={`appearance-none pl-2.5 pr-7 py-1.5 text-xs font-semibold rounded-lg border cursor-pointer transition-all ${
+                  simulatedRole && simulatedRole !== user.role
+                    ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                }`}
+                title="Simulate dashboard view as Admin, Pro User, or Free User"
+              >
+                <option value={user.role}>👑 View As: Admin</option>
+                <option value="pro">⚡ View As: Paid User</option>
+                <option value="user">🎁 View As: Free User</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+            </div>
+          )}
+
           {/* Domain Selector */}
           <div className="relative">
             <select

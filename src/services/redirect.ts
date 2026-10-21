@@ -293,8 +293,9 @@ export async function handleRedirect(
       }
     }
 
+    const shortUrl = `${requestUrl.protocol}//${requestUrl.host}${requestUrl.pathname}`;
     const splashCsp = "default-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.googlesyndication.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: https:; font-src 'self' data: https://fonts.gstatic.com; frame-src *; connect-src *;";
-    return new Response(renderSplashPage(splashConfig, finalDestinationUrl), {
+    return new Response(renderSplashPage(splashConfig, finalDestinationUrl, undefined, shortUrl), {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',

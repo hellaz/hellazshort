@@ -18,6 +18,7 @@ import {
   Sparkles,
   DollarSign,
   Plus,
+  LayoutTemplate,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -177,6 +178,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <Globe className="w-5 h-5 shrink-0" />
               {isOpen && <span>Domains</span>}
+            </button>
+
+            <button
+              onClick={() => onNavigate('root-page')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                isCurrent('root-page')
+                  ? 'bg-indigo-600 text-white'
+                  : 'hover:bg-slate-800 hover:text-white text-slate-300'
+              }`}
+              title="Root Domain & Public Pages CMS"
+            >
+              <LayoutTemplate className="w-5 h-5 shrink-0 text-indigo-400" />
+              {isOpen && <span>Root Domain &amp; Pages</span>}
             </button>
           </>
         )}

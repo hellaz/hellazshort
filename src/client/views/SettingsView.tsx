@@ -38,12 +38,14 @@ interface SettingsViewProps {
   user: User | null;
   subPage?: string;
   onUserUpdated?: () => void;
+  onNavigate?: (page: string) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   user,
   subPage = 'account',
   onUserUpdated,
+  onNavigate,
 }) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState(subPage);
@@ -830,6 +832,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <p className="text-xs text-slate-500 mt-1">
               Configure what visitors see when opening your root domain (e.g. urlz.eu.org without a slug) and customize HTML content across all public pages.
             </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+            <span className="text-indigo-900 dark:text-indigo-200">
+              ✨ <strong>Dedicated Left Sidebar Workspace:</strong> You can now also access this editor directly from the navigation sidebar under <strong>"Root Domain &amp; Pages"</strong>.
+            </span>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('root-page')}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer shrink-0 transition-colors shadow-xs"
+              >
+                Open Fullscreen View &rarr;
+              </button>
+            )}
           </div>
 
           <form onSubmit={handleSaveRootPage} className="space-y-6 text-xs">

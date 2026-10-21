@@ -42,6 +42,8 @@ interface DashboardViewProps {
   onViewAnalytics: (linkId?: string) => void;
   createModalOpen?: boolean;
   onCloseCreateModal?: () => void;
+  userRole?: string;
+  onNavigate?: (page: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -50,6 +52,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onViewAnalytics,
   createModalOpen,
   onCloseCreateModal,
+  userRole,
+  onNavigate,
 }) => {
   const { showToast } = useToast();
 
@@ -149,6 +153,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [splashBannerLink, setSplashBannerLink] = useState('');
   const [splashAdCode, setSplashAdCode] = useState('');
   const [splashButtonText, setSplashButtonText] = useState('Proceed to Destination');
+  const [splashShowQr, setSplashShowQr] = useState(true);
 
   // Modal & Category Helper States
   const [isSavingLink, setIsSavingLink] = useState(false);
@@ -317,6 +322,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setSplashTitle('Sponsored Destination');
     setSplashMessage('You will be redirected to your destination shortly.');
     setSplashBannerUrl('');
+    setSplashBannerLink('');
+    setSplashAdCode('');
+    setSplashShowQr(true);
     setSplashButtonText('Proceed to Destination');
 
     // Deep link
@@ -363,6 +371,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setSplashTitle(meta.splash?.title || 'Sponsored Destination');
     setSplashMessage(meta.splash?.message || '');
     setSplashBannerUrl(meta.splash?.banner_url || '');
+    setSplashBannerLink(meta.splash?.banner_link || '');
+    setSplashAdCode(meta.splash?.ad_code || '');
+    setSplashShowQr(meta.splash?.show_qr !== false);
     setSplashButtonText(meta.splash?.button_text || 'Proceed to Destination');
 
     if (meta.deep_link) {
@@ -612,6 +623,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           banner_link: splashBannerLink.trim() || undefined,
           ad_code: splashAdCode.trim() || undefined,
           button_text: splashButtonText.trim() || 'Proceed to Destination',
+          show_qr: splashShowQr,
         };
       } else {
         delete metadataObj.splash;
@@ -797,6 +809,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setTimeout(() => setCopiedId(null), 2500);
   };
 
+  // Download QR Code as PNG
+  const handleDownloadQrPng = () => {
+    if (!qrLink) return;
+    const svgEl = document.querySelector('#active-qr-svg') as SVGElement;
+    if (!svgEl) return;
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const URLObj = window.URL || window.webkitURL || window;
+    const blobURL = URLObj.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      canvas.width = 512;
+      canvas.height = 512;
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, 512, 512);
+        const pngFile = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement('a');
+        downloadLink.download = `qr-${qrLink.slug}.png`;
+        downloadLink.href = pngFile;
+        downloadLink.click();
+        showToast('QR Code PNG downloaded!', 'success');
+      }
+    };
+    img.src = blobURL;
+  };
+
+  // Download QR Code as SVG
+  const handleDownloadQrSvg = () => {
+    if (!qrLink) return;
+    const svgEl = document.querySelector('#active-qr-svg') as SVGElement;
+    if (!svgEl) return;
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qr-${qrLink.slug}.svg`;
+    a.click();
+    showToast('QR Code SVG downloaded!', 'success');
+  };
+
   // Format full link
   const getFullShortUrl = (link: LinkType) => {
     const domain = domains.find((d) => d.id === link.domain_id);
@@ -906,6 +964,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Tier & Quota Status Indicator */}
+      {userRole === 'user' ? (
+        <div className="bg-gradient-to-r from-amber-500/10 via-slate-900/60 to-slate-900 border border-amber-500/30 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-amber-500 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>🎁</span> Free Community Plan
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono text-[10px] font-semibold border border-amber-500/30">
+                {Math.max(0, 10 - stats.totalLinks)} / 10 Links Remaining
+              </span>
+            </div>
+            <p className="text-slate-400 text-[11px]">
+              You are viewing the dashboard as a <strong>Free User</strong> with a standard 10-link limit. Earn +50 bonus links for every friend you refer.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('monetization')}
+                className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <span>⚡ Unlock More Credits</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : userRole === 'pro' ? (
+        <div className="bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-slate-900 border border-indigo-500/30 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>⚡</span> Pro Member Workspace
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-semibold border border-indigo-500/30">
+                Unlimited Links Active
+              </span>
+            </div>
+            <p className="text-slate-400 text-[11px]">
+              You are viewing the dashboard as a <strong>Paid Pro Member</strong> with unlimited short links, custom retargeting pixels, and advanced geo/device routing.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       {/* Top Banner / Stats Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -1128,6 +1231,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
+                          <button
+                            onClick={() => setQrLink(link)}
+                            className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors cursor-pointer"
+                            title="Instant QR Code (View & Download)"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                         {link.title && (
                           <div className="font-sans text-[11px] text-slate-500 font-normal truncate max-w-[200px]">
@@ -2162,17 +2272,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </div>
                         </div>
 
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                            Google AdSense / Custom Ad Script Code (optional)
-                          </label>
+                        {/* Ad Separation & Fallback Section */}
+                        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                              Ad Unit Separation &amp; Platform Fallback
+                            </label>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border self-start sm:self-auto ${
+                              splashAdCode.trim() || splashBannerUrl.trim()
+                                ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            }`}>
+                              {splashAdCode.trim() || splashBannerUrl.trim() ? '✨ Link-Specific Custom Ad' : '🛡️ Inherits Admin Global Ad Network'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            <strong>Fallback Guarantee:</strong> If left blank, this splash page automatically serves the administrator's global platform ad network (Google AdSense or platform campaigns). Providing your own custom script tag below overrides platform ads for this specific link.
+                          </p>
                           <textarea
                             rows={2}
-                            placeholder="<script async src='https://pagead2.googlesyndication.com/...'></script>"
+                            placeholder="<script async src='https://pagead2.googlesyndication.com/...'></script> or custom HTML/JS ad snippet"
                             value={splashAdCode}
                             onChange={(e) => setSplashAdCode(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs font-mono rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            className="w-full px-2.5 py-1.5 text-xs font-mono rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
                           />
+                        </div>
+
+                        {/* QR Code on Splash Page Toggle */}
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
+                          <div className="space-y-0.5">
+                            <span className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                              📱 Display Mobile QR Code on Splash Page
+                            </span>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                              Displays a high-contrast QR code on the intermediate page so desktop visitors can scan and open on mobile immediately.
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={splashShowQr}
+                              onChange={(e) => setSplashShowQr(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                          </label>
                         </div>
 
                         <div>
@@ -2256,36 +2400,66 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* QR CODE MODAL */}
       {qrLink && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl animate-in fade-in zoom-in-95">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">QR Code</h3>
-            <p className="text-xs text-slate-500 mt-1 mb-4">
-              Scan to open short link on mobile devices
-            </p>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl animate-in fade-in zoom-in-95 space-y-4">
+            <div>
+              <div className="inline-flex p-2 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mb-2">
+                <QrCode className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Mobile QR Code</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Scan with any smartphone camera to open short link
+              </p>
+            </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 inline-block shadow-inner mx-auto mb-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 inline-block shadow-md mx-auto">
               <QRCodeSVG
+                id="active-qr-svg"
                 value={getFullShortUrl(qrLink)}
-                size={200}
+                size={190}
                 level="H"
                 includeMargin
               />
             </div>
 
-            <p className="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-4 break-all">
-              {getFullShortUrl(qrLink)}
-            </p>
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-left">
+              <span className="block text-[10px] uppercase font-bold text-slate-400">Short Destination</span>
+              <p className="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400 break-all select-all">
+                {getFullShortUrl(qrLink)}
+              </p>
+              <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                <Check className="w-3 h-3" />
+                <span>Rendered on intermediate splash page for desktop visitors</span>
+              </div>
+            </div>
 
-            <div className="flex gap-2 justify-center">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleDownloadQrPng}
+                className="px-3 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PNG</span>
+              </button>
+              <button
+                onClick={handleDownloadQrSvg}
+                className="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-700"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download SVG</span>
+              </button>
+            </div>
+
+            <div className="flex gap-2 justify-center pt-1 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => handleCopyLink(qrLink)}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 cursor-pointer transition-colors flex items-center gap-1.5"
+                className="flex-1 py-1.5 text-xs font-semibold rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 cursor-pointer transition-colors flex items-center justify-center gap-1.5"
               >
                 <Copy className="w-3.5 h-3.5" />
-                <span>Copy URL</span>
+                <span>Copy Link</span>
               </button>
               <button
                 onClick={() => setQrLink(null)}
-                className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 cursor-pointer transition-colors"
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
               >
                 Close
               </button>
