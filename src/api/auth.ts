@@ -97,7 +97,7 @@ authRouter.post('/social/:provider', async (c) => {
       role: 'user',
       cloudflare_access_id: providerUserId,
       tier: 'free',
-      onboarding_completed: isPlaceholderEmail ? 0 : 1,
+      onboarding_completed: 0,
     });
 
     // Award affiliate referral bonus if referral_code provided
@@ -609,7 +609,9 @@ authRouter.put('/me', authMiddleware, async (c) => {
       throw new HTTPException(409, { message: 'Email is already in use by another account' });
     }
     updates.email = email;
-    // If the user was in onboarding state and now provided a real email, complete onboarding
+  }
+
+  if (username || email) {
     updates.onboarding_completed = 1;
   }
 
@@ -625,6 +627,7 @@ authRouter.put('/me', authMiddleware, async (c) => {
       username: updated?.username,
       email: updated?.email,
       role: updated?.role,
+      onboarding_completed: updated?.onboarding_completed === 1,
       is_social_user: Boolean(
         updated?.username?.match(/^(google|facebook|twitter|github)_/) ||
         updated?.email?.endsWith('@urlz.eu.org') ||

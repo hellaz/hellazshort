@@ -3,6 +3,7 @@ import { getGeoRedirects, getDeviceRedirects, getCityRedirects, getOsRedirects }
 import { getOgMeta, upsertOgMeta, clearOgMeta, type OgMetaInput } from '../db/linkOgMeta';
 import { getLinkPixels, setLinkPixels } from '../db/linkPixels';
 import { getUserById } from '../db/users';
+import { fetchOgTags, isPubliclyFetchableUrl } from '../utils/ogScraper';
 
 /** Redirect/OG/pixel data already in cache shape (geo keys UPPER, city names lower, empty groups undefined). */
 export interface CachedLinkParts {
@@ -74,6 +75,35 @@ export async function buildCachedLink(env: Env, link: Link, domain: Domain): Pro
     (link as any).creator_username ? Promise.resolve({ username: (link as any).creator_username }) : (link.created_by ? getUserById(env, link.created_by) : Promise.resolve(null)),
   ]);
 
+  let resolvedOgMeta = ogMeta
+    ? {
+        og_title: ogMeta.og_title,
+        og_description: ogMeta.og_description,
+        og_image: ogMeta.og_image,
+        og_type: ogMeta.og_type,
+        twitter_card: ogMeta.twitter_card,
+      }
+    : undefined;
+
+  // On-the-fly fallback: if og_meta is missing in DB, scrape destination URL so preview card is available
+  if (!resolvedOgMeta && link.destination_url && isPubliclyFetchableUrl(link.destination_url)) {
+    try {
+      const scraped = await fetchOgTags(link.destination_url);
+      if (scraped.og_title || scraped.og_description || scraped.og_image) {
+        resolvedOgMeta = {
+          og_title: scraped.og_title,
+          og_description: scraped.og_description,
+          og_image: scraped.og_image,
+          og_type: scraped.og_type || 'website',
+          twitter_card: scraped.twitter_card || 'summary_large_image',
+        };
+        await upsertOgMeta(env, link.id, resolvedOgMeta).catch(() => {});
+      }
+    } catch {
+      // Ignore scraper timeout
+    }
+  }
+
   return composeCachedLink(link, domain, {
     created_by_username: user?.username || undefined,
     geo:
@@ -99,15 +129,7 @@ export async function buildCachedLink(env: Env, link: Link, domain: Domain): Pro
           ios: osRedirects.find((r) => r.os === 'ios')?.destination_url,
         }
         : undefined,
-    og_meta: ogMeta
-      ? {
-          og_title: ogMeta.og_title,
-          og_description: ogMeta.og_description,
-          og_image: ogMeta.og_image,
-          og_type: ogMeta.og_type,
-          twitter_card: ogMeta.twitter_card,
-        }
-      : undefined,
+    og_meta: resolvedOgMeta,
     pixels:
       pixels.length > 0
         ? pixels.map((p) => ({ pixel_type: p.pixel_type, pixel_id: p.pixel_id }))

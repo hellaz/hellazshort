@@ -37,12 +37,14 @@ function getDomainCacheKey(domainName: string, version: number): string {
   return `domain:${version}:${domainName}`;
 }
 
+const LINK_CACHE_VERSION = 'v2';
+
 export async function getCachedLink(
   env: Env,
   domain: string,
   slug: string
 ): Promise<CachedLink | null> {
-  const key = `link:${domain}:${slug}`;
+  const key = `link:${LINK_CACHE_VERSION}:${domain}:${slug}`;
   const cached = await env.CACHE.get(key, { type: 'json', cacheTtl: LINK_CACHE_EDGE_TTL });
   return (cached as CachedLink) || null;
 }
@@ -53,12 +55,12 @@ export async function setCachedLink(
   slug: string,
   link: CachedLink
 ): Promise<void> {
-  const key = `link:${domain}:${slug}`;
+  const key = `link:${LINK_CACHE_VERSION}:${domain}:${slug}`;
   await env.CACHE.put(key, JSON.stringify(link), { expirationTtl: CACHE_TTL });
 }
 
 export async function deleteCachedLink(env: Env, domain: string, slug: string): Promise<void> {
-  const key = `link:${domain}:${slug}`;
+  const key = `link:${LINK_CACHE_VERSION}:${domain}:${slug}`;
   await env.CACHE.delete(key);
 }
 
