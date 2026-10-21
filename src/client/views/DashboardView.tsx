@@ -57,8 +57,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   userRole,
   onNavigate,
 }) => {
-  const isProMember = user?.tier === 'pro' || userRole === 'admin' || userRole === 'owner';
-  const isAdminOrOwner = userRole === 'admin' || userRole === 'owner' || user?.role === 'admin' || user?.role === 'owner';
+  const effectiveRole = userRole || user?.role || 'user';
+  const isProMember = user?.tier === 'pro' || user?.tier === 'enterprise' || effectiveRole === 'admin' || effectiveRole === 'owner';
+  const isAdminOrOwner = (effectiveRole === 'admin' || effectiveRole === 'owner') && userRole !== 'user' && user?.role !== 'user';
   const { showToast } = useToast();
 
   const [links, setLinks] = useState<LinkType[]>([]);
@@ -968,29 +969,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Onboarding / Profile Completion Overlay */}
-      {((user as any)?.onboarding_completed === false || (user as any)?.onboarding_completed === 0) && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto">
-              <Settings className="w-8 h-8 animate-spin-slow" />
-            </div>
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Complete Your Profile</h2>
-              <p className="text-sm text-slate-500">
-                You've signed in via a social provider. To start managing links, please verify your email and set a public username.
-              </p>
-            </div>
-            <button
-              onClick={() => onNavigate?.('settings-profile')}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>Update Profile & Continue</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Tier & Quota Status Indicator */}
       {(user as any)?.tier === 'free' && userRole !== 'admin' && userRole !== 'owner' ? (
@@ -2266,7 +2244,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               min="2"
                               max="30"
                               value={splashCountdown}
-                              onChange={(e) => setSplashCountdown(Math.max(2, parseInt(e.target.value) || 5))}
+                              onChange={(e) => setSplashCountdown(Math.max(2, parseInt(e.target.value) || 10))}
                               className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                             />
                           </div>

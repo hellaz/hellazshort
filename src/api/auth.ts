@@ -80,24 +80,31 @@ authRouter.post('/social/:provider', async (c) => {
   let user = await getUserByEmail(c.env, email);
   if (!user) {
     const dummyPassHash = await hashPassword(`SocialAuth_${provider}_${Date.now()}`);
-    // Derive a clean username from real name or email
-    const baseUsername = name ? name.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 18) : `${provider}_${Date.now().toString(36)}`;
+    // Derive a clean username from real name or email prefix
+    let baseUsername = '';
+    if (name && !name.toLowerCase().includes('user')) {
+      baseUsername = name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').slice(0, 18);
+    } else if (email && !email.endsWith('@urlz.eu.org')) {
+      baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 18);
+    } else {
+      baseUsername = `${provider}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+
     let username = baseUsername;
     const existing = await getUserByUsername(c.env, username);
     if (existing) {
-      username = `${baseUsername}_${Math.random().toString(36).slice(2, 6)}`;
+      username = `${baseUsername}_${Math.random().toString(36).slice(2, 5)}`;
     }
 
-    const isPlaceholderEmail = email.endsWith('@urlz.eu.org');
-    
     user = await createUser(c.env, {
       username,
       email,
       password_hash: dummyPassHash,
       role: 'user',
-      cloudflare_access_id: providerUserId,
+      cloudflare_access_id: providerUserId || `${provider}_${Date.now()}`,
+      preferences: JSON.stringify({ auth_provider: provider }),
       tier: 'free',
-      onboarding_completed: 0,
+      onboarding_completed: 1,
     });
 
     // Award affiliate referral bonus if referral_code provided

@@ -22,11 +22,17 @@ import { LegalView } from './views/LegalView';
 import { ReportAbuseModal } from './views/ReportAbuseModal';
 import { RootPageView } from './views/RootPageView';
 import { DashboardHelpPanel } from './components/DashboardHelpPanel';
+import { OnboardingModal } from './components/OnboardingModal';
 
 export const AppContent: React.FC = () => {
   const { showToast } = useToast();
 
   const [user, setUser] = useState<User | null>(null);
+
+  const isPlaceholderUsername = Boolean(user?.username?.match(/^(google|facebook|twitter|github)_/));
+  const isPlaceholderEmail = Boolean(user?.email?.endsWith('@urlz.eu.org'));
+  const isUncompletedFlag = (user as any)?.onboarding_completed === false || (user as any)?.onboarding_completed === 0;
+  const needsOnboarding = Boolean(user && (isUncompletedFlag || isPlaceholderUsername || isPlaceholderEmail));
   const [simulatedRole, setSimulatedRole] = useState<'owner' | 'admin' | 'pro' | 'user' | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [currentPage, setCurrentPage] = useState<string>('landing');
@@ -498,6 +504,7 @@ export const AppContent: React.FC = () => {
           {/* Main Dashboard: Links management */}
           {currentPage === 'dashboard' && (
             <DashboardView
+              user={user}
               currentDomainId={currentDomainId}
               domains={domains}
               onViewAnalytics={(linkId) => {

@@ -40,7 +40,7 @@ export function sanitizeUser(user: object): Record<string, unknown> {
 // List all users (admin only)
 usersRouter.get('/', authMiddleware, requireRole(['admin', 'owner']), async (c) => {
   const users = await c.env.DB.prepare(
-    `SELECT id, email, username, role, global_access, tier, onboarding_completed, mfa_enabled, created_at, updated_at, last_login_at 
+    `SELECT id, email, username, role, global_access, tier, onboarding_completed, mfa_enabled, cloudflare_access_id, preferences, created_at, updated_at, last_login_at 
      FROM users 
      ORDER BY created_at DESC`
   ).all<{
@@ -52,13 +52,14 @@ usersRouter.get('/', authMiddleware, requireRole(['admin', 'owner']), async (c) 
     tier: string;
     onboarding_completed: number;
     mfa_enabled?: number;
+    cloudflare_access_id?: string;
+    preferences?: string;
     created_at: number;
     updated_at: number;
     last_login_at?: number;
   }>();
 
   // Get domain access for each user
-  // Get all user domains in one query
   const allUserDomains = await getAllUserDomains(c.env);
 
   // Group domains by user_id
@@ -70,16 +71,37 @@ usersRouter.get('/', authMiddleware, requireRole(['admin', 'owner']), async (c) 
     domainsByUserId[ud.user_id].push(ud.domain_id);
   }
 
-  // Map users to their domains
+  // Map users to their domains & detect auth provider
   const usersWithDomains = users.results.map((user) => {
     const userDomainIds = user.global_access === 1
       ? []
       : (domainsByUserId[user.id] || []);
 
+    let provider = 'email';
+    try {
+      if (user.preferences) {
+        const parsed = JSON.parse(user.preferences);
+        if (parsed.auth_provider) provider = parsed.auth_provider;
+      }
+    } catch {}
+
+    if (provider === 'email' && user.cloudflare_access_id) {
+      if (user.cloudflare_access_id.startsWith('google')) provider = 'google';
+      else if (user.cloudflare_access_id.startsWith('github')) provider = 'github';
+      else if (user.cloudflare_access_id.startsWith('twitter')) provider = 'twitter';
+      else if (user.cloudflare_access_id.startsWith('facebook')) provider = 'facebook';
+    } else if (provider === 'email' && user.username) {
+      if (user.username.startsWith('google_')) provider = 'google';
+      else if (user.username.startsWith('github_')) provider = 'github';
+      else if (user.username.startsWith('twitter_')) provider = 'twitter';
+      else if (user.username.startsWith('facebook_')) provider = 'facebook';
+    }
+
     return {
       ...user,
+      auth_provider: provider,
       global_access: user.global_access === 1,
-      mfa_enabled: user.mfa_enabled === 1, // drives the dashboard's Reset MFA button
+      mfa_enabled: user.mfa_enabled === 1,
       domain_ids: userDomainIds,
     };
   });
