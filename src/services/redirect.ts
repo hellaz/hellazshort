@@ -220,6 +220,10 @@ export async function handleRedirect(
   // Extract query parameters from request and merge with destination URL
   const requestUrl = new URL(request.url);
   let finalDestinationUrl = mergeQueryParams(resolvedUrl, requestUrl);
+  // Ensure final destination URL has a valid scheme (http:// or https://) if it is an external host
+  if (!finalDestinationUrl.startsWith('http://') && !finalDestinationUrl.startsWith('https://') && !finalDestinationUrl.startsWith('/')) {
+    finalDestinationUrl = 'https://' + finalDestinationUrl;
+  }
   // DEBUG: console.log('[REDIRECT] Final destination URL:', finalDestinationUrl);
 
   // Password protection check
@@ -271,7 +275,7 @@ export async function handleRedirect(
     }
   }
 
-  // Splash page interstitial (monetization & branding countdown with 24h frequency cap)
+  // Splash page interstitial (monetization & branding countdown with 24h frequency cap on ad scripts)
   const cookieHeader = request.headers.get('Cookie') || '';
   const lastSplashMatch = cookieHeader.match(/(?:^|;\s*)last_splash_seen=(\d+)/);
   const isRecentSplash = lastSplashMatch ? (Date.now() - parseInt(lastSplashMatch[1], 10) < 24 * 60 * 60 * 1000) : false;
@@ -281,9 +285,14 @@ export async function handleRedirect(
   const asOrg = (cf.asOrganization || '').toLowerCase();
   const isDatacenter = /amazon|google|microsoft|digitalocean|hetzner|ovh|linode|oracle|vultr|leaseweb|softlayer|ibm|fastly|cloudflare/i.test(asOrg);
 
-  if (cached.splash?.enabled && !isBot(ogUserAgent) && !isDatacenter && requestUrl.searchParams.get('skip_splash') !== '1' && !isRecentSplash) {
+  if (cached.splash?.enabled && !isBot(ogUserAgent) && !isDatacenter && requestUrl.searchParams.get('skip_splash') !== '1') {
     let splashConfig = { ...cached.splash };
-    if (!splashConfig.ad_code) {
+
+    // 24-Hour Ad Frequency Cap: Suppress heavy third-party ad scripts if the user has seen an ad within 24h,
+    // while STILL serving the splash countdown page and destination link.
+    if (isRecentSplash) {
+      splashConfig.ad_code = '';
+    } else if (!splashConfig.ad_code) {
       try {
         const adNet = await getAdNetworkSettingsOrDefault(env);
         if (adNet.enabled) {
@@ -299,7 +308,9 @@ export async function handleRedirect(
     }
 
     const shortUrl = `${requestUrl.protocol}//${requestUrl.host}${requestUrl.pathname}`;
-    const referralUrl = cached.created_by_username ? `${requestUrl.protocol}//${requestUrl.host}/register?ref=${encodeURIComponent(cached.created_by_username)}` : undefined;
+    const referralUrl = cached.created_by_username 
+      ? `${requestUrl.protocol}//${requestUrl.host}/register?ref=${encodeURIComponent(cached.created_by_username)}`
+      : `${requestUrl.protocol}//${requestUrl.host}/register`;
     const splashCsp = "default-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.googlesyndication.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: https:; font-src 'self' data: https://fonts.gstatic.com; frame-src *; connect-src *;";
     return new Response(renderSplashPage(splashConfig, finalDestinationUrl, undefined, shortUrl, cached.description, cached.title, referralUrl), {
       status: 200,

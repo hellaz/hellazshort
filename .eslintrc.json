@@ -15,5 +15,5 @@
     "no-useless-escape": "off",
     "no-useless-catch": "off"
   },
-  "ignorePatterns": ["node_modules/", "dist/", "openshortlink.sqlite*"]
+  "ignorePatterns": ["node_modules/", "dist/", "dev-dist/", "openshortlink.sqlite*"]
 }
