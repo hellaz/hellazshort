@@ -385,9 +385,12 @@ async function startServer() {
     // 2. Filter out frontend SPA routes and asset paths
     const isFrontendPath =
       pathname === '/' ||
+      pathname.startsWith('/p/') ||
       pathname === '/dashboard' ||
       pathname.startsWith('/dashboard/') ||
       pathname === '/login' ||
+      pathname === '/register' ||
+      pathname === '/signup' ||
       pathname === '/setup' ||
       pathname === '/admin' ||
       pathname.startsWith('/@') ||

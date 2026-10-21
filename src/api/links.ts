@@ -682,7 +682,8 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
   }
 
   const metadata = JSON.stringify(metadataObj);
-  const pixelIds = await resolveLinkPixelIds(c.env, effectiveDomainId, validated.pixel_ids, { applyDefaults: true }).catch(rethrowPixelError);
+  validated.domain_id = effectiveDomainId;
+  const pixelIds = await resolveLinkPixelIds(c.env, validated.domain_id, validated.pixel_ids, { applyDefaults: true }).catch(rethrowPixelError);
 
   let link: Link;
   try {
