@@ -280,10 +280,10 @@ export async function handleRedirect(
   const lastSplashMatch = cookieHeader.match(/(?:^|;\s*)last_splash_seen=(\d+)/);
   const isRecentSplash = lastSplashMatch ? (Date.now() - parseInt(lastSplashMatch[1], 10) < 24 * 60 * 60 * 1000) : false;
   
-  // Datacenter/Hosting ASN filtration
+  // Datacenter/Hosting ASN filtration (excludes cloudflare/google so preview environments and worker proxies are not blocked)
   const cf = (request as any).cf || {};
   const asOrg = (cf.asOrganization || '').toLowerCase();
-  const isDatacenter = /amazon|google|microsoft|digitalocean|hetzner|ovh|linode|oracle|vultr|leaseweb|softlayer|ibm|fastly|cloudflare/i.test(asOrg);
+  const isDatacenter = /amazon|digitalocean|hetzner|ovh|linode|oracle|vultr|leaseweb|softlayer|ibm/i.test(asOrg);
 
   if (cached.splash?.enabled && !isBot(ogUserAgent) && !isDatacenter && requestUrl.searchParams.get('skip_splash') !== '1') {
     let splashConfig = { ...cached.splash };
@@ -399,29 +399,8 @@ export async function handleRedirect(
   // We need to create a new Response because Response.redirect() returns an immutable response
   const redirectCode = cached.redirect_code as 301 | 302 | 307 | 308;
 
-  // Determine cache headers based on redirect type
-  // 301/308 are permanent → cache long (1 year)
-  // 302/307 are temporary → cache short (1 hour)
-  const isPermanent = redirectCode === 301 || redirectCode === 308;
-  // Links that carry ANY per-visitor redirect rule (geo/city/os/device) must not be
-  // frozen in the browser for a year: a rule/destination edit would never reach a
-  // returning visitor, and the same cached Location could be replayed regardless of
-  // the visitor's new geo/device. Cap those to a short max-age and drop `immutable`
-  // so edits propagate. Rule-free links keep the long permanent-redirect cache.
-  const hasRules = !!(cached.geo_redirects || cached.city_redirects || cached.os_redirects || cached.device_redirects);
-  const cacheMaxAge = isPermanent
-    ? (hasRules ? 300 : 31536000) // 5 min for rule-bearing permanent redirects, else 1 year
-    : 3600; // 1 hour for temporary
-  // Geo (country) and city redirects are resolved from request.cf, which cannot
-  // participate in a Vary header — so a shared cache could replay one visitor's
-  // geo-specific destination to visitors elsewhere. Mark those responses `private`
-  // (browser-only). Device/OS redirects vary on User-Agent (which IS Vary-able),
-  // so they can safely remain `public`.
-  const geoVariant = !!(cached.geo_redirects || cached.city_redirects);
-  const cacheScope = geoVariant ? 'private' : 'public';
-  const cacheControl = (isPermanent && !hasRules)
-    ? `${cacheScope}, max-age=${cacheMaxAge}, immutable`
-    : `${cacheScope}, max-age=${cacheMaxAge}`;
+  // Prevent browser disk caching of 301/302 redirects so dashboard configuration changes (enabling/disabling splash, updating destination) take effect immediately on next request.
+  const cacheControl = 'private, no-cache, no-store, max-age=0, must-revalidate';
 
   // Build headers
   const headers: HeadersInit = {
