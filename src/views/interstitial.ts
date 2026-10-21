@@ -88,12 +88,13 @@ export function renderSplashPage(
   destinationUrl: string,
   nonce?: string
 ): string {
-  const countdown = Math.max(Number(splash.countdown) || 5, 1);
+  // Enforce default maximum 10s countdown
+  const countdown = Math.min(Math.max(Number(splash.countdown) || 5, 1), 10);
   const title = escapeHtml(splash.title || 'Sponsored Destination');
-  const customMessage = escapeHtml(splash.message || 'You will be redirected to your destination shortly.');
+  const customMessage = escapeHtml(splash.message || 'Your destination link will be ready when the countdown completes.');
   const bannerUrl = splash.banner_url ? escapeHtml(splash.banner_url) : '';
-  const adCode = splash.ad_code ? splash.ad_code : `<div style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px dashed #6366f1; border-radius: 16px; padding: 1.5rem; text-align: center; color: #a5b4fc; font-size: 0.85rem;"><div style="font-weight: 700; margin-bottom: 0.25rem; color: #fff;">Sponsored AdSense Unit</div><div>Google AdSense Responsive Banner &bull; 728x90</div></div>`;
-  const buttonText = escapeHtml(splash.button_text || 'Proceed to Destination');
+  const adCode = splash.ad_code ? splash.ad_code : `<div style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px dashed #6366f1; border-radius: 16px; padding: 1.5rem; text-align: center; color: #a5b4fc; font-size: 0.85rem;"><div style="font-weight: 700; margin-bottom: 0.25rem; color: #fff;">Sponsored Ad Unit</div><div>728×90 Leaderboard / Responsive Banner</div></div>`;
+  const buttonText = escapeHtml(splash.button_text || 'Get Link');
   const safeDest = escapeHtml(destinationUrl);
   const jsonDest = JSON.stringify(destinationUrl);
   const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : '';
@@ -103,27 +104,34 @@ export function renderSplashPage(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="${countdown};url=${safeDest}">
+  <meta name="robots" content="noindex, nofollow">
   <title>${title} - URLZ</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
-    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 2.25rem; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-    .logo { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 900; color: #fff; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 2.25rem; max-width: 580px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    .logo { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 900; color: #fff; margin-bottom: 1.25rem; letter-spacing: -0.02em; }
     .logo-badge { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #9333ea); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); }
     .badge { display: inline-flex; align-items: center; gap: 0.5rem; background: #1e293b; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; color: #818cf8; margin-bottom: 1.25rem; }
     .timer { font-family: monospace; font-size: 0.85rem; background: #312e81; color: #c7d2fe; padding: 0.2rem 0.6rem; border-radius: 9999px; }
     h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.75rem; }
-    .banner { width: 100%; max-height: 200px; object-fit: cover; border-radius: 16px; margin-bottom: 1.25rem; border: 1px solid #334155; }
-    .ad-container { margin-bottom: 1.25rem; width: 100%; }
-    .msg-box { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; }
-    p { font-size: 0.9rem; color: #cbd5e1; line-height: 1.6; }
+    .banner { width: 100%; max-height: 180px; object-fit: cover; border-radius: 16px; margin-bottom: 1.25rem; border: 1px solid #334155; }
+    
+    /* Anti-Fraud Standards: Clear 11px gray label and strict minimum 150px buffer between ad and action button */
+    .ad-wrapper { width: 100%; margin-bottom: 150px; text-align: center; }
+    .ad-label { font-size: 11px; color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600; }
+    #ad-container { width: 100%; min-height: 90px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; }
+
+    .msg-box { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+    p { font-size: 0.875rem; color: #cbd5e1; line-height: 1.5; }
     .target-preview { font-size: 0.75rem; color: #64748b; font-family: monospace; word-break: break-all; margin-top: 0.5rem; }
-    .btn { display: inline-block; width: 100%; padding: 0.85rem; border-radius: 14px; border: none; background: #4f46e5; color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background 0.2s, opacity 0.2s; text-decoration: none; }
-    .btn.disabled { opacity: 0.6; pointer-events: none; background: #334155; }
-    .btn:hover:not(.disabled) { background: #4338ca; }
-    .footer { margin-top: 1.25rem; font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #1e293b; }
+    
+    .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 0.95rem 1.5rem; border-radius: 14px; border: none; background: #4f46e5; color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background 0.2s, opacity 0.2s, transform 0.1s; text-decoration: none; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); }
+    .btn.disabled { opacity: 0.5; pointer-events: none; background: #334155; box-shadow: none; cursor: not-allowed; }
+    .btn:hover:not(.disabled) { background: #4338ca; transform: translateY(-1px); }
+    .footer { margin-top: 1.5rem; font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #1e293b; }
     .footer a { color: #818cf8; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -134,46 +142,65 @@ export function renderSplashPage(
     </div>
     <div>
       <div class="badge">
-        <span>✨ ${title}</span>
+        <span>${title}</span>
         <span id="countdown" class="timer">${countdown}s</span>
       </div>
     </div>
     ${bannerUrl ? `<img src="${bannerUrl}" alt="Banner" class="banner" />` : ''}
-    <div class="ad-container">
-      ${adCode}
+
+    <!-- Dynamic Ad Container with 11px gray label and strict minimum 150px separation buffer -->
+    <div class="ad-wrapper">
+      <div class="ad-label">Advertisement</div>
+      <div id="ad-container">
+        ${adCode}
+      </div>
     </div>
+
     <div class="msg-box">
       <p>${customMessage}</p>
-      <div class="target-preview">Target: ${safeDest}</div>
+      <div class="target-preview">Destination: ${safeDest}</div>
     </div>
-    <a id="proceedBtn" href="${safeDest}" class="btn disabled">Please wait ${countdown}s...</a>
+
+    <!-- Final Action Button: Disabled until timer hits 0. User MUST intentionally click (never auto-triggered). -->
+    <a id="proceedBtn" href="${safeDest}" class="btn disabled" role="button" aria-disabled="true">
+      Please wait <span id="btnTimer" style="margin-left: 4px;">${countdown}s</span>...
+    </a>
+
     <div class="footer">
-      <span>🔒 URLZ Interstitial Security Check</span>
+      <span>🔒 URLZ Interstitial Safety Gate</span>
       <a href="/p/report-abuse?url=${encodeURIComponent(destinationUrl)}">Report Abuse</a>
     </div>
   </div>
+
   <script${nonceAttr}>
     (function() {
+      // Record splash view for 24-hour frequency capping (both localStorage and Cookie)
+      var now = Date.now().toString();
+      try {
+        localStorage.setItem('last_splash_seen', now);
+      } catch(e) {}
+      document.cookie = 'last_splash_seen=' + now + '; max-age=86400; path=/; SameSite=Lax';
+
       var remaining = ${countdown};
       var cd = document.getElementById('countdown');
+      var btnTimer = document.getElementById('btnTimer');
       var btn = document.getElementById('proceedBtn');
       var dest = ${jsonDest};
 
-      function proceed() {
-        try {
-          window.location.replace(dest);
-        } catch (e) {
-          window.location.href = dest;
-        }
-      }
-
+      // Strict Anti-Fraud Standard: Never auto-trigger click or redirect on timer finish.
+      // The user must intentionally click to proceed.
       if (btn) {
         btn.addEventListener('click', function(e) {
           if (btn.classList.contains('disabled')) {
             e.preventDefault();
-            return;
+            return false;
           }
-          proceed();
+          // Intentionally clicked by user
+          try {
+            window.location.href = dest;
+          } catch(err) {
+            window.location.replace(dest);
+          }
         });
       }
 
@@ -181,15 +208,16 @@ export function renderSplashPage(
         remaining--;
         if (remaining > 0) {
           if (cd) cd.textContent = remaining + 's';
-          if (btn) btn.textContent = 'Please wait ' + remaining + 's...';
+          if (btnTimer) btnTimer.textContent = remaining + 's';
         } else {
           clearInterval(interval);
-          if (cd) cd.textContent = 'Redirecting...';
+          if (cd) cd.textContent = 'Ready';
           if (btn) {
-            btn.textContent = '${buttonText} \\u2192';
+            btn.textContent = '${buttonText} →';
             btn.classList.remove('disabled');
+            btn.removeAttribute('aria-disabled');
           }
-          proceed();
+          // Do NOT auto-trigger proceed(). Wait for user intentional click.
         }
       }, 1000);
     })();

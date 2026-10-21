@@ -271,8 +271,12 @@ export async function handleRedirect(
     }
   }
 
-  // Splash page interstitial (monetization & branding countdown)
-  if (cached.splash?.enabled && !isBot(ogUserAgent) && requestUrl.searchParams.get('skip_splash') !== '1') {
+  // Splash page interstitial (monetization & branding countdown with 24h frequency cap)
+  const cookieHeader = request.headers.get('Cookie') || '';
+  const lastSplashMatch = cookieHeader.match(/(?:^|;\s*)last_splash_seen=(\d+)/);
+  const isRecentSplash = lastSplashMatch ? (Date.now() - parseInt(lastSplashMatch[1], 10) < 24 * 60 * 60 * 1000) : false;
+
+  if (cached.splash?.enabled && !isBot(ogUserAgent) && requestUrl.searchParams.get('skip_splash') !== '1' && !isRecentSplash) {
     let splashConfig = { ...cached.splash };
     if (!splashConfig.ad_code) {
       try {

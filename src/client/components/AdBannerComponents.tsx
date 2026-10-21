@@ -9,6 +9,10 @@ export interface AdNetworkConfig {
 }
 
 export function isAdDefined(ad?: AdNetworkConfig): boolean {
+  // Prevent execution of third-party ad scripts during local development
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return false;
+  }
   if (!ad || !ad.enabled || ad.provider === 'none') return false;
   if (ad.provider === 'adsense') {
     return Boolean(
