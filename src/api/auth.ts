@@ -88,12 +88,16 @@ authRouter.post('/social/:provider', async (c) => {
       username = `${baseUsername}_${Math.random().toString(36).slice(2, 6)}`;
     }
 
+    const isPlaceholderEmail = email.endsWith('@urlz.eu.org');
+    
     user = await createUser(c.env, {
       username,
       email,
       password_hash: dummyPassHash,
       role: 'user',
       cloudflare_access_id: providerUserId,
+      tier: 'free',
+      onboarding_completed: isPlaceholderEmail ? 0 : 1,
     });
 
     // Award affiliate referral bonus if referral_code provided
@@ -108,7 +112,7 @@ authRouter.post('/social/:provider', async (c) => {
           const refId = generateId();
           await c.env.DB.prepare(
             `INSERT INTO referrals (id, referrer_user_id, referred_user_id, bonus_links_granted, created_at) VALUES (?, ?, ?, ?, ?)`
-          ).bind(refId, referrer.id, user.id, 50, Date.now()).run();
+          ).bind(refId, referrer.id, user.id, 10, Date.now()).run();
         }
       } catch (e) {
         console.warn('Failed to award referral credits on social sign-in:', e);
@@ -345,7 +349,7 @@ authRouter.post('/register', createRateLimit({
         const refId = generateId();
         await c.env.DB.prepare(
           `INSERT INTO referrals (id, referrer_user_id, referred_user_id, bonus_links_granted, created_at) VALUES (?, ?, ?, ?, ?)`
-        ).bind(refId, referrer.id, user.id, 50, Date.now()).run();
+        ).bind(refId, referrer.id, user.id, 10, Date.now()).run();
       }
     } catch (e) {
       console.warn('Failed to award referral credits on registration:', e);
@@ -566,6 +570,8 @@ authRouter.get('/me', optionalAuth, async (c) => {
       role: fullUser.role,
       mfa_enabled: fullUser.mfa_enabled === 1,
       must_change_password: fullUser.must_change_password === 1, // #11
+      tier: fullUser.tier,
+      onboarding_completed: fullUser.onboarding_completed === 1,
       is_social_user: Boolean(
         fullUser.username?.match(/^(google|facebook|twitter|github)_/) ||
         fullUser.email?.endsWith('@urlz.eu.org') ||
@@ -603,6 +609,8 @@ authRouter.put('/me', authMiddleware, async (c) => {
       throw new HTTPException(409, { message: 'Email is already in use by another account' });
     }
     updates.email = email;
+    // If the user was in onboarding state and now provided a real email, complete onboarding
+    updates.onboarding_completed = 1;
   }
 
   if (Object.keys(updates).length > 0) {

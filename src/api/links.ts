@@ -65,6 +65,7 @@ import { canAccessDomain, hasPermission } from '../utils/permissions';
 import { isInfiniteRedirect } from '../utils/domains';
 import { getEffectiveLinkRoute } from '../utils/route';
 import { createLinkSchema, updateLinkSchema, ogFetchSchema } from '../schemas';
+import { createRateLimit } from '../middleware/rateLimit';
 
 const linksRouter = new Hono<{ Bindings: Env }>();
 
@@ -558,14 +559,42 @@ linksRouter.post('/og-fetch', authMiddleware, validateJson(ogFetchSchema), async
   }
 });
 
+// Rate limit for link creation: 10 per minute per IP for unauth/guest
+const createLinkRateLimit = createRateLimit({
+  window: 60,
+  max: (c) => {
+    const user = (c as any).get?.('user');
+    // Owners and admins have much higher limits or no limit
+    if (user?.role === 'owner' || user?.role === 'admin') return 1000;
+    // Authenticated users get 30 per minute
+    if (user) return 30;
+    // Guests/API keys get 10 per minute
+    return 10;
+  },
+  key: (c) => `create-link:${c.req.header('CF-Connecting-IP') || 'unknown'}`,
+});
+
 // Create link
-linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) => {
+linksRouter.post('/', createLinkRateLimit, optionalAuth, validateJson(createLinkSchema), async (c) => {
   // If no session user was resolved by optionalAuth, check if an API key Bearer header was provided
   if (!(c as any).get?.('user') && c.req.header('Authorization')?.startsWith('Bearer sk_')) {
     await apiKeyMiddleware(c as any, async () => {});
   }
 
   const validated = c.req.valid('json');
+
+  // Idempotency check: prevent duplicate creation on network retries
+  const idempotencyKey = c.req.header('Idempotency-Key');
+  if (idempotencyKey && c.env.CACHE) {
+    const cachedResponse = await c.env.CACHE.get(`idempotency:${idempotencyKey}`);
+    if (cachedResponse) {
+      try {
+        return c.json(JSON.parse(cachedResponse));
+      } catch (e) {
+        console.error('[IDEMPOTENCY] Failed to parse cached response:', e);
+      }
+    }
+  }
 
   // Auto-resolve domain_id if omitted (guest/public requests)
   let effectiveDomainId = validated.domain_id;
@@ -613,20 +642,48 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
     if (!captchaRes.valid) {
       throw new HTTPException(400, { message: captchaRes.message || 'Captcha verification failed.' });
     }
+
+    // Guest limit: 3 per 24h by IP
+    const ip = c.req.header('CF-Connecting-IP') || 'unknown';
+    const guestKey = `guest_links:${ip}`;
+    const count = parseInt(await c.env.CACHE.get(guestKey) || '0', 10);
+    if (count >= 3) {
+      throw new HTTPException(429, { message: 'Anonymous link creation limit reached (3 per 24h). Please sign in to create more.' });
+    }
   }
 
-  // Quota check
+  // Quota check for logged in users
   if (user && user.role !== 'owner' && user.role !== 'admin') {
     const userLinksCountRow = await c.env.DB.prepare(`SELECT COUNT(*) as count FROM links WHERE created_by = ? AND status != 'deleted'`).bind(user.id).first<{ count: number }>();
     const bonusRow = await c.env.DB.prepare(`SELECT SUM(bonus_links_granted) as total_bonus FROM referrals WHERE referrer_user_id = ?`).bind(user.id).first<{ total_bonus: number }>();
-    const maxAllowed = 10 + (Number(bonusRow?.total_bonus) || 0);
+    
+    // Base quota based on tier
+    const baseQuota = (user as any).tier === 'pro' ? 5000 : 10;
+    const maxAllowed = baseQuota + (Number(bonusRow?.total_bonus) || 0);
+    
     if ((userLinksCountRow?.count || 0) >= maxAllowed) {
-      throw new HTTPException(403, { message: `Free link limit reached (${userLinksCountRow?.count}/${maxAllowed}).` });
+      throw new HTTPException(403, { 
+        message: `Link limit reached for ${((user as any).tier || 'free').toUpperCase()} tier (${userLinksCountRow?.count}/${maxAllowed}).` 
+      });
     }
   }
 
   if (await isInfiniteRedirect(c.env, validated.destination_url)) {
     throw new HTTPException(400, { message: 'Infinite redirect loop detected.' });
+  }
+
+  // Automatic Metadata Capture: if title/description missing, attempt fetch
+  let finalTitle = validated.title ? sanitizeHtml(validated.title) : undefined;
+  let finalDescription = validated.description ? sanitizeHtml(validated.description) : undefined;
+
+  if ((!finalTitle || !finalDescription) && isPubliclyFetchableUrl(validated.destination_url)) {
+    try {
+      const scraped = await fetchOgTags(validated.destination_url);
+      if (!finalTitle && scraped.og_title) finalTitle = sanitizeHtml(scraped.og_title);
+      if (!finalDescription && scraped.og_description) finalDescription = sanitizeHtml(scraped.og_description);
+    } catch (e) {
+      console.warn('[OG CAPTURE] Failed to auto-scrape:', e);
+    }
   }
 
   const domain = await getDomainById(c.env, effectiveDomainId);
@@ -692,8 +749,8 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
       domain_id: effectiveDomainId,
       slug,
       destination_url: destinationUrl,
-      title,
-      description,
+      title: finalTitle,
+      description: finalDescription,
       redirect_code: validated.redirect_code,
       status: 'active',
       expires_at: validated.expires_at,
@@ -704,6 +761,14 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
       unique_visitors: 0,
       created_by: user?.id || null,
     });
+
+    // Increment guest limit after successful creation
+    if (!user && !apiKey) {
+      const ip = c.req.header('CF-Connecting-IP') || 'unknown';
+      const guestKey = `guest_links:${ip}`;
+      const count = parseInt(await c.env.CACHE.get(guestKey) || '0', 10);
+      await c.env.CACHE.put(guestKey, String(count + 1), { expirationTtl: 86400 });
+    }
   } catch (error) {
     if (error instanceof SlugConflictError) throw new HTTPException(409, { message: 'Slug already exists.' });
     throw error;
@@ -739,7 +804,14 @@ linksRouter.post('/', optionalAuth, validateJson(createLinkSchema), async (c) =>
   const tags = await getLinkTags(c.env, link.id);
   const linkWithTags = { ...link, tags, geo_redirects: geoRedirects, device_redirects: deviceRedirects, city_redirects: cityRedirects, os_redirects: osRedirects, og_meta: ogMeta, pixels };
 
-  return c.json({ success: true, data: linkWithTags }, 201);
+  const responseData = { success: true, data: linkWithTags };
+  
+  if (idempotencyKey && c.env.CACHE) {
+    // Store for 24 hours to handle retries
+    await c.env.CACHE.put(`idempotency:${idempotencyKey}`, JSON.stringify(responseData), { expirationTtl: 86400 });
+  }
+
+  return c.json(responseData, 201);
 });
 
 // Update link

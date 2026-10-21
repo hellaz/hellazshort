@@ -97,6 +97,8 @@ export interface User {
   global_access?: number; // 0 or 1 (SQLite boolean) - 1 = access to all domains
   permission_version?: number; // Incremented when domain access changes (for cache invalidation)
   must_change_password?: number; // 0 or 1 (SQLite boolean) - 1 = force password change on next login (#11)
+  tier: 'free' | 'pro' | 'admin';
+  onboarding_completed: number; // 0 or 1 (SQLite boolean)
 }
 
 export interface UserDomain {
@@ -196,6 +198,8 @@ export interface ClickEvent {
 }
 
 export interface CachedLink {
+  title?: string;
+  description?: string;
   destination_url: string;
   redirect_code: number;
   status: string;
@@ -261,6 +265,7 @@ export interface CachedLink {
   }>;
   route?: string; // The specific route this link is assigned to (for strict routing)
   domain_routing_path?: string; // The domain's default routing path (for legacy strict routing check)
+  created_by_username?: string; // Username of the creator for referral attribution
 }
 
 export interface Env {
@@ -305,6 +310,8 @@ export interface ContextUser {
   accessible_domain_ids?: string[];
   created_at?: number;
   updated_at?: number;
+  tier?: string;
+  onboarding_completed?: boolean;
 }
 
 // Session type reference (defined in services/session.ts)
@@ -318,6 +325,8 @@ export interface SessionData {
   global_access?: boolean;
   permission_version?: number;
   cached_at?: number;
+  tier?: string;
+  onboarding_completed?: boolean;
 }
 
 export interface Variables {

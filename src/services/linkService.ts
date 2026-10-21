@@ -2,6 +2,7 @@ import type { Env, Link, CachedLink, Domain } from '../types';
 import { getGeoRedirects, getDeviceRedirects, getCityRedirects, getOsRedirects } from '../db/linkRedirects';
 import { getOgMeta, upsertOgMeta, clearOgMeta, type OgMetaInput } from '../db/linkOgMeta';
 import { getLinkPixels, setLinkPixels } from '../db/linkPixels';
+import { getUserById } from '../db/users';
 
 /** Redirect/OG/pixel data already in cache shape (geo keys UPPER, city names lower, empty groups undefined). */
 export interface CachedLinkParts {
@@ -11,6 +12,7 @@ export interface CachedLinkParts {
   os?: CachedLink['os_redirects'];
   og_meta?: CachedLink['og_meta'];
   pixels?: CachedLink['pixels'];
+  created_by_username?: string;
 }
 
 /**
@@ -28,6 +30,8 @@ export function composeCachedLink(link: Link, domain: Domain, parts: CachedLinkP
   }
 
   return {
+    title: link.title || undefined,
+    description: link.description || undefined,
     destination_url: link.destination_url,
     redirect_code: link.redirect_code,
     status: link.status,
@@ -51,6 +55,7 @@ export function composeCachedLink(link: Link, domain: Domain, parts: CachedLinkP
     pixels: parts.pixels,
     route: meta?.route,
     domain_routing_path: domain.routing_path,
+    created_by_username: parts.created_by_username,
   };
 }
 
@@ -59,16 +64,18 @@ export function composeCachedLink(link: Link, domain: Domain, parts: CachedLinkP
  * Fetches data from all redirect tables in parallel.
  */
 export async function buildCachedLink(env: Env, link: Link, domain: Domain): Promise<CachedLink> {
-  const [geoRedirects, deviceRedirects, cityRedirects, osRedirects, ogMeta, pixels] = await Promise.all([
+  const [geoRedirects, deviceRedirects, cityRedirects, osRedirects, ogMeta, pixels, user] = await Promise.all([
     getGeoRedirects(env, link.id),
     getDeviceRedirects(env, link.id),
     getCityRedirects(env, link.id),
     getOsRedirects(env, link.id),
     getOgMeta(env, link.id),
-    getLinkPixels(env, link.id)
+    getLinkPixels(env, link.id),
+    (link as any).creator_username ? Promise.resolve({ username: (link as any).creator_username }) : (link.created_by ? getUserById(env, link.created_by) : Promise.resolve(null)),
   ]);
 
   return composeCachedLink(link, domain, {
+    created_by_username: user?.username || undefined,
     geo:
       geoRedirects.length > 0
         ? Object.fromEntries(geoRedirects.map((r) => [r.country_code, r.destination_url]))

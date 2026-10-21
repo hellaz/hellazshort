@@ -103,7 +103,7 @@ export const LegalView: React.FC<LegalViewProps> = ({
             <section className="space-y-2">
               <h2 className="text-sm font-bold text-white">3. User Quotas &amp; Platform Sponsorship</h2>
               <p>
-                Free tier accounts receive an allocation of 10 short links and can earn additional link creation credits through the affiliate referral program (+50 links per verified referral). Platform sponsorship, interstitial splash ads, and publisher CPM earnings are governed by our revenue sharing model and subject to a $50 minimum payout threshold.
+                Free tier accounts receive an allocation of 10 short links and can earn additional link creation credits through the affiliate referral program (+10 links per verified referral). Platform sponsorship, interstitial splash ads, and publisher CPM earnings are governed by our revenue sharing model and subject to a $50 minimum payout threshold.
               </p>
             </section>
 
@@ -115,7 +115,14 @@ export const LegalView: React.FC<LegalViewProps> = ({
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-sm font-bold text-white">5. Disclaimer &amp; Limitation of Liability</h2>
+              <h2 className="text-sm font-bold text-white">5. Progressive Web App (PWA) Usage</h2>
+              <p>
+                URLZ may be installed as a Progressive Web App (PWA). By installing the application, you agree to local data caching on your device for performance and offline access. You are responsible for securing your device to prevent unauthorized access to your installed dashboard.
+              </p>
+            </section>
+
+            <section className="space-y-2">
+              <h2 className="text-sm font-bold text-white">6. Disclaimer &amp; Limitation of Liability</h2>
               <p>
                 URLZ is provided "as is" and "as available". We do not guarantee uninterrupted uptime, though we strive for 99.99% availability across global edge regions. URLZ shall not be liable for any indirect or consequential damages arising from service usage.
               </p>
@@ -152,7 +159,7 @@ export const LegalView: React.FC<LegalViewProps> = ({
             <section className="space-y-2">
               <h2 className="text-sm font-bold text-white">3. Cookies &amp; Local Storage</h2>
               <p>
-                We use strictly necessary session cookies (`session_token`, `refresh_token`) to maintain authentication status in the dashboard, and local storage to save your UI preferences (dark mode, referral invite codes). We do not use intrusive third-party cross-site behavioral tracking cookies.
+                We use strictly necessary session cookies (`session_token`, `refresh_token`) to maintain authentication status in the dashboard. We also utilize a `last_splash_seen` cookie and local storage to enforce a 24-hour frequency cap on interstitial splash pages, ensuring a better user experience by preventing repetitive ad views. We do not use intrusive third-party cross-site behavioral tracking cookies.
               </p>
             </section>
 

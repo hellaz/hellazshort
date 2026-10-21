@@ -1,6 +1,6 @@
 {
-  "name": "URLZ - Free URL Shortener",
-  "description": "Open-source Cloudflare-based link shortener and management platform",
+  "name": "URLZ - Smart Link Management & Redirection",
+  "description": "High-performance link shortener with geo-targeting, branded interstitials, real-time analytics, and edge redirection.",
   "permissions": [],
   "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

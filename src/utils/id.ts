@@ -19,11 +19,13 @@ export function generateId(prefix = ''): string {
 }
 
 export function generateSlug(length = 8): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const charsLength = chars.length; // 62
+  // Use a curated alphabet that excludes visually ambiguous characters (0, O, l, I)
+  // to prevent user errors when manually typing slugs.
+  const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789';
+  const charsLength = chars.length; // 58
   // Calculate the largest multiple of charsLength that fits in 256
   // This ensures unbiased distribution via rejection sampling
-  const maxValid = 256 - (256 % charsLength); // 256 - 8 = 248
+  const maxValid = 256 - (256 % charsLength); // 256 - 24 = 232
   
   let result = '';
   while (result.length < length) {

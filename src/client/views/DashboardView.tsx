@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 
 interface DashboardViewProps {
+  user?: User | null;
   currentDomainId: string;
   domains: Domain[];
   onViewAnalytics: (linkId?: string) => void;
@@ -47,6 +48,7 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
+  user,
   currentDomainId,
   domains,
   onViewAnalytics,
@@ -55,6 +57,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   userRole,
   onNavigate,
 }) => {
+  const isProMember = user?.tier === 'pro' || userRole === 'admin' || userRole === 'owner';
   const { showToast } = useToast();
 
   const [links, setLinks] = useState<LinkType[]>([]);
@@ -964,8 +967,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Onboarding / Profile Completion Overlay */}
+      {(user as any)?.onboarding_completed === false && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto">
+              <Settings className="w-8 h-8 animate-spin-slow" />
+            </div>
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Complete Your Profile</h2>
+              <p className="text-sm text-slate-500">
+                You've signed in via a social provider. To start managing links, please verify your email and set a public username.
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigate?.('settings-profile')}
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Update Profile & Continue</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tier & Quota Status Indicator */}
-      {userRole === 'user' ? (
+      {(user as any)?.tier === 'free' && userRole !== 'admin' && userRole !== 'owner' ? (
         <div className="bg-gradient-to-r from-amber-500/10 via-slate-900/60 to-slate-900 border border-amber-500/30 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -973,11 +1000,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>🎁</span> Free Community Plan
               </span>
               <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono text-[10px] font-semibold border border-amber-500/30">
-                {Math.max(0, 10 - stats.totalLinks)} / 10 Links Remaining
+                {stats.totalLinks} Links Active
               </span>
             </div>
             <p className="text-slate-400 text-[11px]">
-              You are viewing the dashboard as a <strong>Free User</strong> with a standard 10-link limit. Earn +50 bonus links for every friend you refer.
+              You are on the <strong>Free Tier</strong> (10 link base quota). Invite friends to earn <strong>+10 links</strong> per referral!
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -986,12 +1013,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={() => onNavigate('monetization')}
                 className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>⚡ Unlock More Credits</span>
+                <span>⚡ Get More Links</span>
               </button>
             )}
           </div>
         </div>
-      ) : userRole === 'pro' ? (
+      ) : (user as any)?.tier === 'pro' && userRole !== 'admin' && userRole !== 'owner' ? (
         <div className="bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-slate-900 border border-indigo-500/30 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -999,11 +1026,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>⚡</span> Pro Member Workspace
               </span>
               <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-semibold border border-indigo-500/30">
-                Unlimited Links Active
+                {stats.totalLinks} / 5,000 Links Used
               </span>
             </div>
             <p className="text-slate-400 text-[11px]">
-              You are viewing the dashboard as a <strong>Paid Pro Member</strong> with unlimited short links, custom retargeting pixels, and advanced geo/device routing.
+              Active <strong>Pro Developer</strong> subscription. Enjoy custom retargeting pixels, cloaking, and high API limits.
             </p>
           </div>
         </div>
@@ -1658,29 +1685,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {/* Dynamic Redirects: Country-Specific */}
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                <div className={`p-3.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between ${!isProMember ? 'opacity-75' : ''}`}>
+                  <label className={`flex items-center gap-2 select-none ${isProMember ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                     <input
                       type="checkbox"
+                      disabled={!isProMember}
                       checked={enableGeoRedirects}
                       onChange={(e) => {
+                        if (!isProMember) return;
                         setEnableGeoRedirects(e.target.checked);
                         if (e.target.checked && geoRedirects.length === 0) {
                           setGeoRedirects([{ id: `geo-${Date.now()}`, country_code: '', destination_url: '' }]);
                         }
                       }}
-                      className="rounded text-indigo-600 w-4 h-4"
+                      className="rounded text-indigo-600 w-4 h-4 disabled:opacity-50"
                     />
                     <div>
                       <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                         <Globe className="w-3.5 h-3.5 text-indigo-500" />
                         Enable Country-Specific Redirects
+                        {!isProMember && <span className="ml-1 px-1.5 py-0.5 rounded-md bg-indigo-500 text-white text-[9px] font-black uppercase tracking-tighter">Pro</span>}
                       </span>
                       <span className="text-[11px] text-slate-400 block">
                         Redirect users to different URLs based on their country (max 10 countries)
                       </span>
                     </div>
                   </label>
+                  {!isProMember && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('monetization')}
+                      className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-500 cursor-pointer"
+                    >
+                      Unlock Pro
+                    </button>
+                  )}
                   {enableGeoRedirects && (
                     <span className="text-[10px] font-mono text-slate-400">
                       {geoRedirects.length} / 10 countries
@@ -1747,27 +1786,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {/* Unified Device & Mobile OS Routing */}
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                <div className={`p-3.5 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between ${!isProMember ? 'opacity-75' : ''}`}>
+                  <label className={`flex items-center gap-2 select-none ${isProMember ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                     <input
                       type="checkbox"
+                      disabled={!isProMember}
                       checked={enableDeviceRedirects || enableOsRedirects}
                       onChange={(e) => {
+                        if (!isProMember) return;
                         setEnableDeviceRedirects(e.target.checked);
                         setEnableOsRedirects(e.target.checked);
                       }}
-                      className="rounded text-indigo-600 w-4 h-4"
+                      className="rounded text-indigo-600 w-4 h-4 disabled:opacity-50"
                     />
                     <div>
                       <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                         <Smartphone className="w-3.5 h-3.5 text-indigo-500" />
                         Device &amp; Mobile OS Routing
+                        {!isProMember && <span className="ml-1 px-1.5 py-0.5 rounded-md bg-indigo-500 text-white text-[9px] font-black uppercase tracking-tighter">Pro</span>}
                       </span>
                       <span className="text-[11px] text-slate-400 block">
                         Route users based on device type (Desktop, Mobile, Tablet) or Mobile OS (iOS App Store vs Android Play Store)
                       </span>
                     </div>
                   </label>
+                  {!isProMember && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('monetization')}
+                      className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-500 cursor-pointer"
+                    >
+                      Unlock Pro
+                    </button>
+                  )}
                 </div>
 
                 {(enableDeviceRedirects || enableOsRedirects) && (

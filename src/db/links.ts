@@ -31,24 +31,37 @@ export async function getLinkBySlug(
   env: Env,
   domainId: string,
   slug: string
-): Promise<Link | null> {
+): Promise<(Link & { creator_username?: string }) | null> {
   const result = await env.DB.prepare(
-    `SELECT * FROM links WHERE domain_id = ? AND slug = ? AND status != 'deleted'`
+    `SELECT l.*, u.username as creator_username 
+     FROM links l
+     LEFT JOIN users u ON l.created_by = u.id
+     WHERE l.domain_id = ? AND l.slug = ? AND l.status != 'deleted'`
   )
     .bind(domainId, slug)
-    .first<Link>();
+    .first<Link & { creator_username?: string }>();
 
   return result || null;
 }
 
-export async function getLinkById(env: Env, linkId: string): Promise<Link | null> {
-  const result = await env.DB.prepare(`SELECT * FROM links WHERE id = ? AND status != 'deleted'`).bind(linkId).first<Link>();
+export async function getLinkById(env: Env, linkId: string): Promise<(Link & { creator_username?: string }) | null> {
+  const result = await env.DB.prepare(
+    `SELECT l.*, u.username as creator_username 
+     FROM links l
+     LEFT JOIN users u ON l.created_by = u.id
+     WHERE l.id = ? AND l.status != 'deleted'`
+  ).bind(linkId).first<Link & { creator_username?: string }>();
   return result || null;
 }
 
 // Get link by ID including deleted links (for admin/restore operations)
-export async function getLinkByIdIncludingDeleted(env: Env, linkId: string): Promise<Link | null> {
-  const result = await env.DB.prepare(`SELECT * FROM links WHERE id = ?`).bind(linkId).first<Link>();
+export async function getLinkByIdIncludingDeleted(env: Env, linkId: string): Promise<(Link & { creator_username?: string }) | null> {
+  const result = await env.DB.prepare(
+    `SELECT l.*, u.username as creator_username 
+     FROM links l
+     LEFT JOIN users u ON l.created_by = u.id
+     WHERE l.id = ?`
+  ).bind(linkId).first<Link & { creator_username?: string }>();
   return result || null;
 }
 
@@ -57,10 +70,15 @@ export async function getLinkBySlugIncludingDeleted(
   env: Env,
   domainId: string,
   slug: string
-): Promise<Link | null> {
-  const result = await env.DB.prepare(`SELECT * FROM links WHERE domain_id = ? AND slug = ?`)
+): Promise<(Link & { creator_username?: string }) | null> {
+  const result = await env.DB.prepare(
+    `SELECT l.*, u.username as creator_username 
+     FROM links l
+     LEFT JOIN users u ON l.created_by = u.id
+     WHERE l.domain_id = ? AND l.slug = ?`
+  )
     .bind(domainId, slug)
-    .first<Link>();
+    .first<Link & { creator_username?: string }>();
   return result || null;
 }
 
@@ -235,9 +253,10 @@ export async function listLinks(
   }
 
   let query = `
-    SELECT l.*, d.domain_name, d.routing_path
+    SELECT l.*, d.domain_name, d.routing_path, u.username as creator_username
     FROM links l
     JOIN domains d ON l.domain_id = d.id
+    LEFT JOIN users u ON l.created_by = u.id
     WHERE l.status != ? AND d.status = 'active'
   `;
   const params: unknown[] = ['deleted'];
@@ -468,9 +487,10 @@ export async function listLinksWithTagFilter(
 
   // Build query with JOINs for database-level filtering
   let query = `
-    SELECT DISTINCT l.*, d.domain_name, d.routing_path
+    SELECT DISTINCT l.*, d.domain_name, d.routing_path, u.username as creator_username
     FROM links l
     JOIN domains d ON l.domain_id = d.id
+    LEFT JOIN users u ON l.created_by = u.id
   `;
   const params: unknown[] = [];
 

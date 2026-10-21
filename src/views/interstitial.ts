@@ -12,6 +12,7 @@ export function renderPasswordPromptPage(slug: string, linkId?: string): string 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <title>Password Protected Link - URLZ</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -90,7 +91,10 @@ export function renderSplashPage(
   },
   destinationUrl: string,
   nonce?: string,
-  shortUrlParam?: string
+  shortUrlParam?: string,
+  linkDescription?: string,
+  linkTitle?: string,
+  referralUrl?: string
 ): string {
   // Enforce default maximum 10s countdown
   const countdown = Math.min(Math.max(Number(splash.countdown) || 5, 1), 10);
@@ -105,6 +109,8 @@ export function renderSplashPage(
   const safeDest = escapeHtml(destinationUrl);
   const jsonDest = JSON.stringify(destinationUrl);
   const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : '';
+  const safeLinkTitle = linkTitle ? escapeHtml(linkTitle) : '';
+  const safeLinkDesc = linkDescription ? escapeHtml(linkDescription) : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -136,7 +142,12 @@ export function renderSplashPage(
     /* Anti-Fraud Standards: Clear 11px gray label and strict minimum 150px buffer between ad and action button */
     .ad-wrapper { width: 100%; margin-bottom: 150px; text-align: center; }
     .ad-label { font-size: 11px; color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600; }
-    #ad-container { width: 100%; min-height: 90px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; }
+    #ad-container { width: 100%; min-height: 250px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; }
+    #fallback-promo { display: none; width: 100%; min-height: 250px; background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4f46e5; border-radius: 18px; padding: 2rem; color: #fff; text-align: center; }
+    .promo-badge { display: inline-block; background: #4f46e5; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; rounded: 6px; text-transform: uppercase; margin-bottom: 12px; }
+    .promo-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 8px; }
+    .promo-text { font-size: 0.85rem; color: #a5b4fc; margin-bottom: 1.5rem; }
+    .promo-btn { display: inline-block; padding: 0.6rem 1.25rem; background: #fff; color: #4338ca; font-weight: 700; font-size: 0.85rem; border-radius: 10px; text-decoration: none; }
 
     .msg-box { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
     p { font-size: 0.875rem; color: #cbd5e1; line-height: 1.5; }
@@ -183,12 +194,37 @@ export function renderSplashPage(
       <div id="ad-container">
         ${adCode}
       </div>
+      <div id="fallback-promo">
+        <div class="promo-badge">Platform Update</div>
+        <div class="promo-title">Tired of slow links?</div>
+        <div class="promo-text">Create your own branded short links for free with URLZ. Lightning fast, secure, and permanent.</div>
+        <a href="/" class="promo-btn">Get Started for Free &rarr;</a>
+      </div>
     </div>
 
     <div class="msg-box">
+      ${title && title !== 'Sponsored Destination' ? `<h2 style="font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">${title}</h2>` : ''}
       <p>${customMessage}</p>
-      <div class="target-preview">Destination: ${safeDest}</div>
+      
+      ${(safeLinkTitle || safeLinkDesc) ? `
+      <div style="margin-top: 1.25rem; padding: 1rem; background: rgba(79, 70, 229, 0.1); border: 1px solid rgba(79, 70, 229, 0.2); border-radius: 14px; text-align: left;">
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #818cf8; font-weight: 700; margin-bottom: 0.5rem;">Destination Preview</div>
+        ${safeLinkTitle ? `<div style="font-weight: 700; color: #fff; font-size: 0.9rem; margin-bottom: 0.25rem;">${safeLinkTitle}</div>` : ''}
+        ${safeLinkDesc ? `<div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">${safeLinkDesc}</div>` : ''}
+      </div>
+      ` : ''}
+
+      <div class="target-preview">Target: ${safeDest}</div>
     </div>
+
+    ${referralUrl ? `
+    <div style="margin-bottom: 1.25rem;">
+      <a href="${escapeHtml(referralUrl)}" target="_blank" rel="noopener" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0.75rem; background: rgba(79, 70, 229, 0.05); border: 1px dashed rgba(79, 70, 229, 0.3); border-radius: 12px; color: #a5b4fc; text-decoration: none; font-size: 0.8rem; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.background='rgba(79, 70, 229, 0.1)'; this.style.borderColor='rgba(79, 70, 229, 0.5)';" onmouseout="this.style.background='rgba(79, 70, 229, 0.05)'; this.style.borderColor='rgba(79, 70, 229, 0.3)';">
+        <span>✨ Like URLZ? Register yourself!</span>
+        <span style="font-size: 1rem;">&rarr;</span>
+      </a>
+    </div>
+    ` : ''}
 
     <!-- Final Action Button: Disabled until timer hits 0. User MUST intentionally click (never auto-triggered). -->
     <a id="proceedBtn" href="${safeDest}" class="btn disabled" role="button" aria-disabled="true">
@@ -233,6 +269,25 @@ export function renderSplashPage(
         });
       }
 
+      // Ad-Block Detection & Fallback
+      setTimeout(function() {
+        var adContainer = document.getElementById('ad-container');
+        var fallback = document.getElementById('fallback-promo');
+        var adLoaded = false;
+        
+        if (adContainer) {
+          // Check if ad container has content and is visible
+          if (adContainer.innerHTML.trim().length > 100 && adContainer.offsetHeight > 10) {
+            adLoaded = true;
+          }
+        }
+        
+        if (!adLoaded && fallback) {
+          fallback.style.display = 'block';
+          if (adContainer) adContainer.style.display = 'none';
+        }
+      }, 1500);
+
       var interval = setInterval(function() {
         remaining--;
         if (remaining > 0) {
@@ -263,6 +318,7 @@ export function renderCloakedPage(destinationUrl: string, title?: string): strin
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <title>${safeTitle}</title>
   <style>
     body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
@@ -288,6 +344,8 @@ export function renderExpiredPage(type: 'expired' | 'limit'): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+
   <title>${title} - URLZ</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; margin: 0; }
@@ -322,6 +380,7 @@ export function renderNotFoundPage(type: 'link' | 'domain' = 'link'): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <title>${title} - URLZ</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #020617; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; margin: 0; }
@@ -368,6 +427,7 @@ export function renderDeepLinkPage(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <title>Opening ${safePlatform}... - URLZ</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -477,6 +537,7 @@ export function renderMediaEmbedPage(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <title>${safeTitle} - URLZ</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -536,6 +597,7 @@ export function renderOverlayPage(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <title>URLZ</title>
   <style>
     body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }

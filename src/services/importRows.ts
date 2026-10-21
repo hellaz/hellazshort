@@ -277,6 +277,12 @@ export async function importRows(
   };
 
   const createdBy = actor.user?.id ?? actor.apiKey?.user_id;
+  let creatorUsername: string | undefined;
+  if (createdBy) {
+    const { getUserById } = await import('../db/users');
+    const user = await getUserById(env, createdBy);
+    creatorUsername = user?.username || undefined;
+  }
 
   /** Validates + normalizes a destination URL (incl. loop check). */
   const checkDestination = async (raw: string): Promise<string> => {
@@ -364,6 +370,7 @@ export async function importRows(
       ...rulesToCacheParts(rules),
       og_meta: undefined,
       pixels: defaults.cache.length > 0 ? defaults.cache : undefined,
+      created_by_username: creatorUsername,
     });
     try {
       await setCachedLink(env, domain.domain_name, linkRow.slug, cached);

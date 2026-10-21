@@ -189,10 +189,10 @@ const PAGE_HELP_MAP: Record<string, HelpContent> = {
       {
         title: 'Sponsorship & Credits Tools',
         items: [
-          'Short Link Creation Allowance: Base free accounts include 10 short links. Earn +50 bonus link creation credits per referral invite.',
+          'Short Link Creation Allowance: Base free accounts include 10 short links. Earn +10 bonus link creation credits per referral invite.',
           'Interstitial Splash Pages: Display custom sponsored banners or Google AdSense ad units with a countdown timer before redirection.',
           'Advertiser Campaigns: Launch CPM advertiser campaigns ($/1,000 views) targeted by country, with budget limits and custom banners.',
-          'Referral Program: Share your unique referral link to earn +50 permanent link credits per registered referral.',
+          'Referral Program: Share your unique referral link to earn +10 permanent link credits per registered referral.',
         ],
       },
     ],

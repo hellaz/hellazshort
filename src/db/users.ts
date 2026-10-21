@@ -39,8 +39,9 @@ export async function createUser(
   await env.DB.prepare(
     `INSERT INTO users (
       id, email, username, password_hash, cloudflare_access_id,
-      role, preferences, created_at, updated_at, global_access, must_change_password
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      role, preferences, created_at, updated_at, global_access, 
+      must_change_password, tier, onboarding_completed
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id,
@@ -53,7 +54,9 @@ export async function createUser(
       now,
       now,
       globalAccess,
-      user.must_change_password ? 1 : 0
+      user.must_change_password ? 1 : 0,
+      user.tier || 'free',
+      user.onboarding_completed ?? 1
     )
     .run();
 
@@ -103,6 +106,14 @@ export async function updateUser(
   if ((updates as { must_change_password?: number }).must_change_password !== undefined) {
     fields.push('must_change_password = ?');
     values.push((updates as { must_change_password?: number }).must_change_password);
+  }
+  if (updates.tier !== undefined) {
+    fields.push('tier = ?');
+    values.push(updates.tier);
+  }
+  if (updates.onboarding_completed !== undefined) {
+    fields.push('onboarding_completed = ?');
+    values.push(updates.onboarding_completed);
   }
   let permissionChanged = false;
   

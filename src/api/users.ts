@@ -40,7 +40,7 @@ export function sanitizeUser(user: object): Record<string, unknown> {
 // List all users (admin only)
 usersRouter.get('/', authMiddleware, requireRole(['admin', 'owner']), async (c) => {
   const users = await c.env.DB.prepare(
-    `SELECT id, email, username, role, global_access, mfa_enabled, created_at, updated_at, last_login_at 
+    `SELECT id, email, username, role, global_access, tier, onboarding_completed, mfa_enabled, created_at, updated_at, last_login_at 
      FROM users 
      ORDER BY created_at DESC`
   ).all<{
@@ -49,6 +49,8 @@ usersRouter.get('/', authMiddleware, requireRole(['admin', 'owner']), async (c) 
     username?: string;
     role: string;
     global_access: number;
+    tier: string;
+    onboarding_completed: number;
     mfa_enabled?: number;
     created_at: number;
     updated_at: number;
@@ -165,6 +167,7 @@ usersRouter.post('/', authMiddleware, requireRole(['admin', 'owner']), validateJ
     role: validated.role,
     global_access: globalAccess,
     must_change_password: validated.must_change_password ? 1 : 0, // #11
+    tier: validated.tier || 'free',
   });
 
   // Set domain access if not global
@@ -268,6 +271,9 @@ usersRouter.put('/:id', authMiddleware, requireRole(['admin', 'owner']), validat
     // #11: admin can (re)require a forced password change
     (updates as { must_change_password?: number }).must_change_password =
       validated.must_change_password ? 1 : 0;
+  }
+  if (validated.tier !== undefined) {
+    updates.tier = validated.tier;
   }
 
   // Update user

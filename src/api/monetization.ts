@@ -104,8 +104,9 @@ monetizationRouter.get('/overview', authMiddleware, async (c) => {
   }
 
   const isUnlimited = user.role === 'owner' || user.role === 'admin';
-  const freeBaseLimit = 10;
-  const totalLimit = isUnlimited ? 999999 : freeBaseLimit + bonusLinksEarned;
+  const tier = (user as any).tier || 'free';
+  const baseLimit = tier === 'pro' ? 5000 : 10;
+  const totalLimit = isUnlimited ? 999999 : baseLimit + bonusLinksEarned;
   const remainingLinks = isUnlimited ? 999999 : Math.max(0, totalLimit - userLinksCount);
 
   return c.json({
@@ -114,7 +115,7 @@ monetizationRouter.get('/overview', authMiddleware, async (c) => {
       total_clicks: totalClicks,
       estimated_earnings: Number(estimatedEarnings.toFixed(2)),
       quota: {
-        free_limit: freeBaseLimit,
+        free_limit: baseLimit,
         bonus_credits: bonusLinksEarned,
         total_limit: totalLimit,
         used_links: userLinksCount,
@@ -130,9 +131,9 @@ monetizationRouter.get('/overview', authMiddleware, async (c) => {
       api_usage: {
         month_key: currentMonthKey,
         request_count: apiRequestsCount,
-        monthly_limit: user.role === 'owner' || user.role === 'admin' ? 100000 : 0,
-        tier_name: user.role === 'owner' || user.role === 'admin' ? 'Enterprise / Admin' : 'Free Community Plan',
-        is_api_enabled: user.role === 'owner' || user.role === 'admin',
+        monthly_limit: isUnlimited ? 100000 : (tier === 'pro' ? 10000 : 0),
+        tier_name: isUnlimited ? 'Enterprise / Admin' : (tier === 'pro' ? 'Pro Developer' : 'Free Community Plan'),
+        is_api_enabled: isUnlimited || tier === 'pro',
       },
     },
   });
@@ -200,7 +201,7 @@ monetizationRouter.post('/referrals/claim', authMiddleware, async (c) => {
   }
 
   const id = generateId();
-  const bonus = 50;
+  const bonus = 10;
   await c.env.DB.prepare(
     `INSERT INTO referrals (id, referrer_user_id, referred_user_id, bonus_links_granted, created_at) VALUES (?, ?, ?, ?, ?)`
   ).bind(id, referrer.id, user.id, bonus, Date.now()).run();
@@ -211,11 +212,11 @@ monetizationRouter.post('/referrals/claim', authMiddleware, async (c) => {
   });
 });
 
-// Grant Demo / Test Referral Credits (adds +50 credits to user account)
+// Grant Demo / Test Referral Credits (adds +10 credits to user account)
 monetizationRouter.post('/credits/grant', authMiddleware, async (c) => {
   const user = c.get('user') as User;
   const body = await c.req.json().catch(() => ({}));
-  const amount = Number(body.amount) || 50;
+  const amount = Number(body.amount) || 10;
   const targetUserId = (user.role === 'owner' || user.role === 'admin') && body.user_id ? body.user_id : user.id;
 
   const id = generateId();

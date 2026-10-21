@@ -165,7 +165,7 @@ export const ContactView: React.FC<ContactViewProps> = ({
                     )}
                   </div>
                   <p className="text-slate-400 text-xs leading-relaxed">
-                    High-volume REST API limits, custom rate limiting, and programmatic API keys.
+                    High-volume REST API limits, custom rate limiting, and automatic bot/crawler filtration for traffic quality.
                   </p>
                 </div>
 

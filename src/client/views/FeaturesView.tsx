@@ -84,9 +84,9 @@ export const FeaturesView: React.FC<FeaturesViewProps> = ({
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-base text-white">Interstitial Splash &amp; AdSense</h3>
+            <h3 className="font-bold text-base text-white">Monetization &amp; Custom Ads</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Enable ad integration with branded countdown splash pages. Embed Google AdSense responsive units or custom network tags, with auto-redirection after 3 to 15 seconds.
+              Enable ad integration with branded countdown splash pages. Embed custom network tags, affiliate banners, or standard units like Google AdSense with customizable timers.
             </p>
           </div>
 
@@ -94,9 +94,9 @@ export const FeaturesView: React.FC<FeaturesViewProps> = ({
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
               <Layers className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-base text-white">Retargeting Pixels</h3>
+            <h3 className="font-bold text-base text-white">Smart Security &amp; SSRF Guards</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Fire Meta (Facebook) Pixel, Google Tag Manager, TikTok, LinkedIn, or Twitter tracking events before redirecting to build highly targeted remarketing custom audiences.
+              Our enterprise-grade SSRF protection prevents server-side requests to private networks, loopbacks, and cloud metadata endpoints, ensuring link safety at the edge.
             </p>
           </div>
 
@@ -104,9 +104,9 @@ export const FeaturesView: React.FC<FeaturesViewProps> = ({
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
               <Globe className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-base text-white">Custom Branded Domains</h3>
+            <h3 className="font-bold text-base text-white">PWA &amp; Mobile-First App</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Connect your own domains (e.g. `brand.link`) with automatic Cloudflare SSL. Support for root matching (`/*`) or isolated path prefix routing (`/go/*`).
+              Install URLZ as a native app on iOS and Android. Experience lightning-fast link management with offline capabilities and a responsive mobile dashboard.
             </p>
           </div>
 
@@ -124,9 +124,9 @@ export const FeaturesView: React.FC<FeaturesViewProps> = ({
             <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
               <Code2 className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-base text-white">Programmatic REST API</h3>
+            <h3 className="font-bold text-base text-white">Bot &amp; Crawler Filtration</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Integrate short link creation and automated click queries directly into your internal applications, bots, or CI/CD pipelines with scoped API keys.
+              Protect your traffic quality and ad revenue with automatic detection and bypass for social media crawlers and automated scrapers.
             </p>
           </div>
         </div>
@@ -181,7 +181,7 @@ export const FeaturesView: React.FC<FeaturesViewProps> = ({
             Ready to Supercharge Your Link Management?
           </h2>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Create an account in 30 seconds. Base free tier includes 10 short links, with +50 bonus links for every friend you invite.
+            Create an account in 30 seconds. Base free tier includes 10 short links, with +10 bonus links for every friend you invite.
           </p>
           <div className="pt-2">
             <button

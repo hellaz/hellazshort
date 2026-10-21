@@ -173,7 +173,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
 
               <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
                 Take full control of your links with lightning-fast Cloudflare edge redirects, password protection,
-                branded splash pages, retargeting pixels, and deep geo-targeting.
+                branded splash pages, retargeting pixels, and deep geo-targeting. Now with enterprise-grade SSRF security and PWA mobile support.
               </p>
 
               {/* Instant Shortener Form */}
@@ -383,7 +383,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
                 Looking for Advanced Shortener Features?
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
-                Geographic &amp; language targeting, interstitial countdown splash pages, Google AdSense ads, retargeting pixels, and custom branded domains are organized on our dedicated Features page.
+                Geographic &amp; language targeting, interstitial countdown splash pages, Google AdSense ads, retargeting pixels, and custom branded domains are organized on our dedicated Features page. Experience our new PWA mobile app for link management on the go.
               </p>
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
                 <button

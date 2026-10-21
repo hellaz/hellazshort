@@ -10,6 +10,7 @@ import {
   ArrowRight,
   HeartHandshake,
   CheckCircle,
+  Code2,
 } from 'lucide-react';
 
 interface AboutViewProps {
@@ -64,7 +65,7 @@ export const AboutView: React.FC<AboutViewProps> = ({
         </div>
 
         {/* Pillars */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
               <Server className="w-5 h-5" />
@@ -101,7 +102,27 @@ export const AboutView: React.FC<AboutViewProps> = ({
             </div>
             <h3 className="font-bold text-base text-white">Privacy &amp; Data Integrity</h3>
             <p className="text-slate-400 leading-relaxed">
-              We strictly hash IP addresses before storage and aggregate analytics without selling personal data to data brokers. You own your link metrics and click analytics.
+              We strictly hash IP addresses before storage and aggregate analytics without selling personal data. Now featuring a mobile-first PWA experience for link management on any device.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-white">Enterprise SSRF Protection</h3>
+            <p className="text-slate-400 leading-relaxed">
+              Our advanced security layer prevents Server-Side Request Forgery (SSRF) attacks, ensuring our infrastructure cannot be used to probe private internal networks or metadata services.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+              <Code2 className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-white">Programmatic REST API</h3>
+            <p className="text-slate-400 leading-relaxed">
+              Integrate short link creation and automated click queries directly into your internal applications, bots, or CI/CD pipelines with scoped API keys.
             </p>
           </div>
         </div>
@@ -120,7 +141,7 @@ export const AboutView: React.FC<AboutViewProps> = ({
             </div>
             <div className="flex items-start gap-2.5 text-slate-300">
               <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <span><strong>Transparent Free Tier:</strong> Free accounts get 10 permanent short links, expandable with our +50 bonus link affiliate program.</span>
+              <span><strong>Transparent Free Tier:</strong> Free accounts get 10 permanent short links, expandable with our +10 bonus link affiliate program.</span>
             </div>
           </div>
         </div>

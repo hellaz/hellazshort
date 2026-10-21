@@ -31,6 +31,7 @@ export const createUserSchema = z.object({
   global_access: z.boolean().optional(),
   domain_ids: z.array(z.string()).optional(),
   must_change_password: z.boolean().optional(), // #11: force a password change on first login
+  tier: z.enum(['free', 'pro', 'admin']).default('free'),
 });
 
 /**
@@ -44,6 +45,7 @@ export const updateUserSchema = z.object({
   domain_ids: z.array(z.string()).optional(),
   preferences: z.record(z.string(), z.unknown()).optional(),
   must_change_password: z.boolean().optional(), // #11: admin can (re)require a password change
+  tier: z.enum(['free', 'pro', 'admin']).optional(),
 });
 
 /**

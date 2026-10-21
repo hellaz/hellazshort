@@ -3,6 +3,7 @@ import { Domain, User } from '../types';
 import { BrandLogo } from './BrandLogo';
 import { Moon, Sun, LogOut, Plus, Shield, ChevronDown } from 'lucide-react';
 import { DashboardHeaderAd, AdNetworkConfig } from './AdBannerComponents';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   user: User | null;
@@ -108,6 +109,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ))}
             </select>
             <ChevronDown className="w-4 h-4 text-slate-500 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {/* PWA Install Button */}
+          <div className="hidden sm:block">
+            <PWAInstallButton />
           </div>
 
           {/* Quick Add Link */}

@@ -20,6 +20,7 @@ import {
   Plus,
   LayoutTemplate,
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface SidebarProps {
   currentPage: string;
@@ -327,6 +328,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isOpen && <span>Help & Docs</span>}
         </button>
       </nav>
+
+      {/* PWA Install Button (Mobile/Tablet accessibility) */}
+      <div className={`px-4 pb-4 ${!isOpen ? 'hidden' : ''}`}>
+        <PWAInstallButton />
+      </div>
 
       {/* Footer Info */}
       {isOpen && (

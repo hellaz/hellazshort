@@ -275,8 +275,13 @@ export async function handleRedirect(
   const cookieHeader = request.headers.get('Cookie') || '';
   const lastSplashMatch = cookieHeader.match(/(?:^|;\s*)last_splash_seen=(\d+)/);
   const isRecentSplash = lastSplashMatch ? (Date.now() - parseInt(lastSplashMatch[1], 10) < 24 * 60 * 60 * 1000) : false;
+  
+  // Datacenter/Hosting ASN filtration
+  const cf = (request as any).cf || {};
+  const asOrg = (cf.asOrganization || '').toLowerCase();
+  const isDatacenter = /amazon|google|microsoft|digitalocean|hetzner|ovh|linode|oracle|vultr|leaseweb|softlayer|ibm|fastly|cloudflare/i.test(asOrg);
 
-  if (cached.splash?.enabled && !isBot(ogUserAgent) && requestUrl.searchParams.get('skip_splash') !== '1' && !isRecentSplash) {
+  if (cached.splash?.enabled && !isBot(ogUserAgent) && !isDatacenter && requestUrl.searchParams.get('skip_splash') !== '1' && !isRecentSplash) {
     let splashConfig = { ...cached.splash };
     if (!splashConfig.ad_code) {
       try {
@@ -294,8 +299,9 @@ export async function handleRedirect(
     }
 
     const shortUrl = `${requestUrl.protocol}//${requestUrl.host}${requestUrl.pathname}`;
+    const referralUrl = cached.created_by_username ? `${requestUrl.protocol}//${requestUrl.host}/register?ref=${encodeURIComponent(cached.created_by_username)}` : undefined;
     const splashCsp = "default-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.googlesyndication.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: https:; font-src 'self' data: https://fonts.gstatic.com; frame-src *; connect-src *;";
-    return new Response(renderSplashPage(splashConfig, finalDestinationUrl, undefined, shortUrl), {
+    return new Response(renderSplashPage(splashConfig, finalDestinationUrl, undefined, shortUrl, cached.description, cached.title, referralUrl), {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
@@ -410,6 +416,11 @@ export async function handleRedirect(
   const headers: HeadersInit = {
     'Location': finalDestinationUrl,
     'Cache-Control': cacheControl,
+    // Redirection Hygiene: Prevent Referrer leakage and frame-busting
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Frame-Options': 'DENY',
+    'Content-Security-Policy': "frame-ancestors 'none';",
+    'X-Content-Type-Options': 'nosniff',
   };
 
   // Add Vary header if geo/device redirects exist (different users get different destinations)

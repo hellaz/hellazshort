@@ -60,11 +60,57 @@ export function sanitizeSlug(slug: string): string {
 export function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    // Remove trailing slash from pathname
+
+    // 1. Scheme and Host normalization (handled by URL constructor: lowercases them)
+    // 2. Port stripping (handled by URL constructor: .port is empty if standard)
+
+    // 3. Decode unreserved percent-encoded characters (A-Za-z0-9, -, _, ., ~)
+    // per RFC 3986 section 2.3
+    const decodeUnreserved = (str: string) => {
+      return str.replace(/%([0-9A-F]{2})/gi, (match, hex) => {
+        const code = parseInt(hex, 16);
+        if (
+          (code >= 65 && code <= 90) || // A-Z
+          (code >= 97 && code <= 122) || // a-z
+          (code >= 48 && code <= 57) || // 0-9
+          code === 45 || // -
+          code === 46 || // .
+          code === 95 || // _
+          code === 126   // ~
+        ) {
+          return String.fromCharCode(code);
+        }
+        return match.toUpperCase(); // Normalize percent-encodings to uppercase
+      });
+    };
+
+    parsed.pathname = decodeUnreserved(parsed.pathname);
+
+    // 4. Path normalization: remove trailing slash (if not root)
     if (parsed.pathname.length > 1 && parsed.pathname.endsWith('/')) {
       parsed.pathname = parsed.pathname.slice(0, -1);
     }
-    return parsed.toString();
+
+    // 5. Tracking Parameter Stripping (Optional deduplication)
+    // Strip common marketing UTM tags and click IDs to prevent duplicate short records
+    const trackingParams = [
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+      'fbclid', 'gclid', 'msclkid', 'ttclid', 'li_fat_id', 'twclid', 'yclid', '_ga', '_gl'
+    ];
+    trackingParams.forEach(param => {
+      parsed.searchParams.delete(param);
+    });
+
+    // 6. Search normalization: decode unreserved characters and normalize hex to uppercase
+    const search = decodeUnreserved(parsed.search);
+
+    // Reconstruct URL
+    // We don't use parsed.toString() because we want our custom decoded pathname/search
+    const protocol = parsed.protocol; // includes colon
+    const host = parsed.host; // includes port if non-standard
+    const hash = parsed.hash;
+
+    return `${protocol}//${host}${parsed.pathname}${search}${hash}`;
   } catch {
     return url;
   }

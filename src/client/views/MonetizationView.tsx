@@ -45,9 +45,6 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
     adsense_client_id: '',
     adsense_slot_id: '',
     custom_ad_code: '',
-    tier1_cpm: 5.0,
-    tier2_cpm: 3.0,
-    tier3_cpm: 1.5,
   });
   const [adSettingsLoading, setAdSettingsLoading] = useState(false);
   const [adSettingsSaving, setAdSettingsSaving] = useState(false);
@@ -101,12 +98,12 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
     total_clicks: 0,
     estimated_earnings: 0,
     quota: {
-      free_limit: 10,
+      free_limit: (user as any)?.tier === 'pro' ? 5000 : 10,
       bonus_credits: 0,
       total_limit: 10,
       used_links: 0,
       remaining_links: 10,
-      is_unlimited: false,
+      is_unlimited: isAdmin,
     },
     referrals: { total_referred: 0, bonus_links_earned: 0, referral_url: '' },
     api_usage: { month_key: '', request_count: 0, monthly_limit: 0, tier_name: 'Free Community Plan', is_api_enabled: false },
@@ -274,10 +271,10 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
     try {
       const res = await apiRequest('monetization/credits/grant', {
         method: 'POST',
-        body: JSON.stringify({ amount: 50 }),
+        body: JSON.stringify({ amount: 10 }),
       });
       if (res.success) {
-        showToast('+50 Link Creation Credits Awarded!', 'success');
+        showToast('+10 Link Creation Credits Awarded!', 'success');
         fetchOverview();
       } else {
         showToast(res.error || 'Failed to award credits', 'error');
@@ -380,10 +377,10 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
               onClick={handleGrantDemoCredits}
               disabled={grantingDemoCredit}
               className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-all disabled:opacity-50"
-              title="Add test referral credits (+50 links)"
+              title="Add test referral credits (+10 links)"
             >
               <Zap className="w-3.5 h-3.5 text-amber-300" />
-              <span>{grantingDemoCredit ? 'Adding Credits...' : 'Claim +50 Referral Credits'}</span>
+              <span>{grantingDemoCredit ? 'Adding Credits...' : 'Claim +10 Referral Credits'}</span>
             </button>
             <button
               onClick={handleCopyReferralUrl}
@@ -413,7 +410,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
             <div className="flex items-center justify-between text-[11px] text-slate-400">
               <span>{percentUsed}% Quota Utilized</span>
               <span>
-                Free Allowance: 10 Links + {quota.bonus_credits} Referral Credits = {quota.total_limit} Max
+                {quota.free_limit === 5000 ? 'Pro' : 'Free'} Allowance: {quota.free_limit} Links + {quota.bonus_credits} Referral Credits = {quota.total_limit} Max
               </span>
             </div>
           </div>
@@ -560,6 +557,18 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                         >
                           <span className="block text-sm">Custom Ad Script / Tag</span>
                           <span className="text-[11px] opacity-75 font-normal">PropellerAds, Adsterra, PopAds, or custom HTML embed</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdSettings({ ...adSettings, provider: 'none' })}
+                          className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
+                            adSettings.provider === 'none'
+                              ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold ring-1 ring-indigo-500'
+                              : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <span className="block text-sm">No Global Ads</span>
+                          <span className="text-[11px] opacity-75 font-normal">Disable global network tags (same as deactivating switch)</span>
                         </button>
                       </div>
                     </div>
@@ -839,12 +848,12 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
             {/* Free Plan */}
             <div
               className={`bg-white dark:bg-slate-900 p-6 rounded-2xl border shadow-xs flex flex-col justify-between relative ${
-                !isAdmin
+                (user as any)?.tier === 'free' && !isAdmin
                   ? 'border-emerald-500/80 ring-2 ring-emerald-500/20'
                   : 'border-slate-200 dark:border-slate-800'
               }`}
             >
-              {!isAdmin && (
+              {(user as any)?.tier === 'free' && !isAdmin && (
                 <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   <span>Current Active Tier</span>
@@ -860,7 +869,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                 </p>
                 <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300 mt-4">
                   <li className="flex items-center gap-2">✓ 10 Free Shortened Links</li>
-                  <li className="flex items-center gap-2">✓ +50 Bonus Links per Referral</li>
+                  <li className="flex items-center gap-2">✓ +10 Bonus Links per Referral</li>
                   <li className="flex items-center gap-2">✓ Click Analytics &amp; QR Codes</li>
                   <li className="flex items-center gap-2 text-slate-400 dark:text-slate-500">
                     ✕ 0 Programmatic API Requests (Web Only)
@@ -875,10 +884,22 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
             </div>
 
             {/* Pro Developer Plan */}
-            <div className="bg-slate-900 border-2 border-indigo-500 p-6 rounded-2xl shadow-xl text-white relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute top-3 right-3 bg-indigo-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-                Paid Upgrade
-              </div>
+            <div
+              className={`bg-slate-900 border-2 p-6 rounded-2xl shadow-xl text-white relative overflow-hidden flex flex-col justify-between ${
+                (user as any)?.tier === 'pro' && !isAdmin ? 'border-indigo-500 ring-2 ring-indigo-500/40' : 'border-indigo-500/40 hover:border-indigo-500 transition-colors'
+              }`}
+            >
+              {(user as any)?.tier === 'pro' && !isAdmin && (
+                <div className="absolute top-3 right-3 bg-indigo-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  <span>Current Active Tier</span>
+                </div>
+              )}
+              {!((user as any)?.tier === 'pro') && !isAdmin && (
+                <div className="absolute top-3 right-3 bg-indigo-500 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
+                  Paid Upgrade
+                </div>
+              )}
               <div>
                 <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block">
                   Pro Developer
@@ -888,6 +909,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                   For developers building automated apps and production integrations.
                 </p>
                 <ul className="text-xs space-y-2 text-slate-300 mt-4">
+                  <li className="flex items-center gap-2">✓ 5,000 Shortened Links Included</li>
                   <li className="flex items-center gap-2">✓ 25,000 API Requests / mo</li>
                   <li className="flex items-center gap-2">✓ Programmatic API Keys &amp; Whitelist</li>
                   <li className="flex items-center gap-2">✓ Custom Domains &amp; Pixels</li>
@@ -900,9 +922,13 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                   setRequestTier('Pro Developer');
                   setIsApiRequestModalOpen(true);
                 }}
-                className="w-full mt-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg cursor-pointer transition-colors"
+                className={`w-full mt-6 py-2.5 font-bold text-xs rounded-xl shadow-lg cursor-pointer transition-colors ${
+                  (user as any)?.tier === 'pro' && !isAdmin
+                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                }`}
               >
-                {isAdmin ? 'Manage Developer Access' : 'Request Paid Upgrade ($19/mo)'}
+                {isAdmin ? 'Manage Developer Access' : (user as any)?.tier === 'pro' ? 'Manage Subscription' : 'Request Paid Upgrade ($19/mo)'}
               </button>
             </div>
 
@@ -957,7 +983,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                 <span>In-App Referral &amp; Affiliate Program</span>
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Share your unique referral link. Earn +50 bonus free links for every user who registers using your link!
+                Share your unique referral link. Earn +10 bonus free links for every user who registers using your link!
               </p>
             </div>
 
@@ -988,7 +1014,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                 <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
                   +{overview.referrals?.bonus_links_earned || 0} links
                 </span>
-                <span className="text-[11px] text-slate-400 block mt-1">+50 permanent link credits per invite</span>
+                <span className="text-[11px] text-slate-400 block mt-1">+10 permanent link credits per invite</span>
               </div>
             </div>
 
@@ -1000,21 +1026,19 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="font-bold text-indigo-500 mb-1">1. Base Free Tier (10 Links)</div>
+                  <div className="font-bold text-indigo-500 mb-1">1. Base Allowance (10 or 5,000)</div>
                   <p className="text-slate-500 text-[11px] leading-relaxed">
-                    Every registered account starts with 10 free short links with full analytics, QR codes, and routing.
+                    Free accounts start with 10 links. Pro Developer accounts include 5,000 links as a base allowance.
                   </p>
                 </div>
-                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="font-bold text-emerald-500 mb-1">2. Invite Friends (+50 Credits)</div>
+                  <div className="font-bold text-emerald-500 mb-1">2. Invite Friends (+10 Credits)</div>
                   <p className="text-slate-500 text-[11px] leading-relaxed">
-                    Share your affiliate link. Whenever someone creates an account, you receive +50 link creation credits!
+                    Share your affiliate link. Whenever someone creates an account, you receive +10 link creation credits!
                   </p>
-                </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="font-bold text-amber-500 mb-1">3. Create Beyond 10 Links</div>
+                  <div className="font-bold text-amber-500 mb-1">3. Credits Stack Permanently</div>
                   <p className="text-slate-500 text-[11px] leading-relaxed">
-                    Your credits stack permanently, allowing you to create unlimited links without paying any subscription fees.
+                    Credits stack on top of your plan's base limit (e.g. 5,000 + credits). They never expire and are always yours.
                   </p>
                 </div>
               </div>
@@ -1046,7 +1070,7 @@ export const MonetizationView: React.FC<MonetizationViewProps> = ({ user, onNavi
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer flex items-center gap-2 shrink-0 transition-all disabled:opacity-50"
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span>{grantingDemoCredit ? 'Granting...' : 'Test Referral (+50 Credits)'}</span>
+                <span>{grantingDemoCredit ? 'Granting...' : 'Test Referral (+10 Credits)'}</span>
               </button>
             </div>
           </div>

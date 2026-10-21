@@ -493,7 +493,10 @@ async function startServer() {
           }
 
           // 4. Splash Page Interstitial (Monetization & Custom Message)
-          if (metadata.splash?.enabled && req.query.skip_splash !== '1') {
+          const lastSplashSeen = parseInt(cookies['last_splash_seen'] || '0', 10);
+          const isRecentlySeen = Date.now() - lastSplashSeen < 86400000; // 24 hours
+
+          if (metadata.splash?.enabled && req.query.skip_splash !== '1' && !isRecentlySeen) {
             const shortUrl = `${req.protocol}://${req.get('host')}/${cleanSlug}`;
             const splashHtml = renderSplashPage(
               metadata.splash,

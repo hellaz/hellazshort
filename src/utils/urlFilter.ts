@@ -53,8 +53,19 @@ const DEFAULT_BLOCKED_DOMAINS = new Set([
   'iplogger.org',
   'blas2.ru',
   'bitly.com', // Prevent recursive shortener nesting abuse
+  'bit.ly',
   'tinyurl.com',
   't.co',
+  'goo.gl',
+  'ow.ly',
+  'is.gd',
+  'buff.ly',
+  'adf.ly',
+  'rebrandly.com',
+  'bl.ink',
+  't2mio.com',
+  'cutt.ly',
+  'short.io',
 ]);
 
 export interface UrlSecurityResult {
@@ -121,13 +132,55 @@ export function validateUrlSecurity(
     }
   }
 
-  // 4. IP Hostname check (prevent raw IP redirection unless explicitly allowed)
+  // 4. IP Hostname check & SSRF Protection
+  // Reject raw IPs (IPv4) to prevent bypassing hostname-based blocklists
   if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
+    // Check for private / loopback / metadata IP ranges (SSRF Protection)
+    const ip = hostname;
+    const isLoopback = ip.startsWith('127.');
+    const isPrivate = 
+      ip.startsWith('10.') || 
+      ip.startsWith('192.168.') || 
+      (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31);
+    const isLinkLocal = ip.startsWith('169.254.'); // AWS/GCP/Azure Metadata
+    
+    if (isLoopback || isPrivate || isLinkLocal) {
+      return {
+        safe: false,
+        reason: 'Restricted internal or loopback IP addresses are not permitted.',
+      };
+    }
+
     return {
       safe: false,
       reason: 'Raw IP address URLs are not permitted as redirect destinations.',
     };
   }
 
+  // IPv6 SSRF Protection (simple check for loopback/link-local)
+  if (hostname.includes(':')) {
+    if (hostname === '::1' || hostname.startsWith('fe80:') || hostname.startsWith('fc00:') || hostname.startsWith('fd00:')) {
+      return {
+        safe: false,
+        reason: 'Restricted IPv6 internal or loopback addresses are not permitted.',
+      };
+    }
+  }
+
+  // 5. Recursive redirection check (don't allow shortening URLs from this service or common aliases)
+  const appDomains = ['urlz.eu.org', 'urlz.gr', 'urlz.it', 'openshort.link', 'localhost'];
+  if (appDomains.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+     return { safe: false, reason: 'Recursive shortening of links from this service is not permitted.' };
+  }
+
+  return { safe: true };
+}
+
+/**
+ * Placeholder for future integration with Google Safe Browsing API or PhishTank.
+ * Requires an API key and external fetch capability.
+ */
+export async function checkExternalSecurityApis(url: string, apiKey?: string): Promise<UrlSecurityResult> {
+  // Logic to call https://safebrowsing.googleapis.com/v4/threatMatches:find
   return { safe: true };
 }

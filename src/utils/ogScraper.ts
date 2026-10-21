@@ -115,13 +115,24 @@ export function parseIpv4Host(host: string): [number, number, number, number] | 
   return [a, b, c, d];
 }
 
-/** True if the given IPv4 octets fall in a loopback/private/link-local/unspecified range. */
+/** True if the given IPv4 octets fall in a loopback/private/link-local/unspecified/multicast/reserved range. */
 export function isPrivateIpv4(octets: [number, number, number, number]): boolean {
-  const [a, b] = octets;
-  if (a === 127 || a === 10 || a === 0) return true; // loopback, private, unspecified
-  if (a === 169 && b === 254) return true; // link-local (incl. cloud metadata 169.254.169.254)
-  if (a === 192 && b === 168) return true; // private
-  if (a === 172 && b >= 16 && b <= 31) return true; // private
+  const [a, b, c] = octets;
+  // RFC 1918
+  if (a === 10) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  
+  // RFC 1122 / RFC 3927 / RFC 5735 / RFC 6598
+  if (a === 127 || a === 0) return true; // loopback, unspecified
+  if (a === 169 && b === 254) return true; // link-local
+  if (a === 100 && b >= 64 && b <= 127) return true; // carrier-grade NAT
+  if (a === 192 && b === 0 && (c === 0 || c === 2)) return true; // IETF protocol / TEST-NET-1
+  if (a === 198 && (b === 18 || b === 19)) return true; // benchmarking
+  if (a === 198 && b === 51 && c === 100) return true; // TEST-NET-2
+  if (a === 203 && b === 0 && c === 113) return true; // TEST-NET-3
+  if (a >= 224) return true; // Multicast / Reserved
+
   return false;
 }
 
@@ -136,15 +147,38 @@ export function isPubliclyFetchableUrl(url: string): boolean {
   if (!host) return false;
 
   // Hostnames that are never public.
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
-  if (host === 'metadata.google.internal') return false;
+  if (
+    host === 'localhost' || 
+    host.endsWith('.localhost') || 
+    host.endsWith('.local') || 
+    host.endsWith('.internal') ||
+    host.endsWith('.lan')
+  ) return false;
+  
+  if (host === 'metadata.google.internal' || host === '169.254.169.254') return false;
 
   // Strip IPv6 brackets if present.
   const bare = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
 
   // IPv6 loopback / unspecified, and IPv4-mapped/ULA ranges.
   if (bare === '::1' || bare === '::') return false;
-  if (bare.startsWith('fc') || bare.startsWith('fd') || bare.startsWith('fe80')) return false;
+  if (
+    bare.startsWith('fc') || 
+    bare.startsWith('fd') || 
+    bare.startsWith('fe80') || 
+    bare.startsWith('fec0') ||
+    bare.startsWith('ff') // Multicast
+  ) return false;
+
+  // IPv4-mapped IPv6 (::ffff:0:0/96)
+  if (bare.startsWith('::ffff:')) {
+    const parts = bare.split(':');
+    const lastPart = parts[parts.length - 1];
+    if (lastPart.includes('.')) {
+      const octets = parseIpv4Host(lastPart);
+      if (octets && isPrivateIpv4(octets)) return false;
+    }
+  }
 
   // IPv4 literal checks — normalize ANY encoding (decimal/octal/hex/integer) first,
   // so http://2130706433, http://0177.0.0.1, http://0x7f.0.0.1 are all caught.
