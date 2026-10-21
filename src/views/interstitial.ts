@@ -141,11 +141,11 @@ export function renderSplashPage(
     .qr-desc { font-size: 0.75rem; color: #94a3b8; line-height: 1.35; margin-top: 2px; }
     .qr-slug { font-family: monospace; font-size: 0.7rem; color: #818cf8; margin-top: 4px; word-break: break-all; }
 
-    /* Anti-Fraud Standards: Clear 11px gray label and strict minimum 150px buffer between ad and action button */
-    .ad-wrapper { width: 100%; margin-bottom: 150px; text-align: center; }
-    .ad-label { font-size: 11px; color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600; }
-    #ad-container { width: 100%; min-height: 250px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; }
-    #fallback-promo { display: none; width: 100%; min-height: 250px; background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4f46e5; border-radius: 18px; padding: 2rem; color: #fff; text-align: center; }
+    /* Responsive Ad Banner Styling */
+    .ad-wrapper { width: 100%; margin-bottom: 1.25rem; text-align: center; }
+    .ad-label { font-size: 10px; color: #94a3b8; font-family: system-ui, -apple-system, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; font-weight: 600; }
+    #ad-container { width: 100%; min-height: 90px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; }
+    #fallback-promo { display: none; width: 100%; background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4f46e5; border-radius: 18px; padding: 1.25rem; color: #fff; text-align: center; }
     .promo-badge { display: inline-block; background: #4f46e5; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; rounded: 6px; text-transform: uppercase; margin-bottom: 12px; }
     .promo-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 8px; }
     .promo-text { font-size: 0.85rem; color: #a5b4fc; margin-bottom: 1.5rem; }
@@ -274,24 +274,18 @@ export function renderSplashPage(
         });
       }
 
-      // Ad-Block Detection & Fallback
+      // Ad-Block Fallback Check: only show fallback if ad container is completely empty
       setTimeout(function() {
         var adContainer = document.getElementById('ad-container');
         var fallback = document.getElementById('fallback-promo');
-        var adLoaded = false;
-        
-        if (adContainer) {
-          // Check if ad container has content and is visible
-          if (adContainer.innerHTML.trim().length > 100 && adContainer.offsetHeight > 10) {
-            adLoaded = true;
+        if (adContainer && fallback) {
+          var hasContent = adContainer.innerHTML.trim().length > 0;
+          if (!hasContent) {
+            fallback.style.display = 'block';
+            adContainer.style.display = 'none';
           }
         }
-        
-        if (!adLoaded && fallback) {
-          fallback.style.display = 'block';
-          if (adContainer) adContainer.style.display = 'none';
-        }
-      }, 1500);
+      }, 3000);
 
       var interval = setInterval(function() {
         remaining--;
