@@ -312,7 +312,7 @@ export async function handleRedirect(
       ? `${requestUrl.protocol}//${requestUrl.host}/register?ref=${encodeURIComponent(cached.created_by_username)}`
       : `${requestUrl.protocol}//${requestUrl.host}/register`;
     const splashCsp = "default-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.googlesyndication.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: https:; font-src 'self' data: https://fonts.gstatic.com; frame-src *; connect-src *;";
-    return new Response(renderSplashPage(splashConfig, finalDestinationUrl, undefined, shortUrl, cached.description, cached.title, referralUrl), {
+    return new Response(renderSplashPage(splashConfig, finalDestinationUrl, undefined, shortUrl, cached.description, cached.title, referralUrl, cached.og_meta), {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',

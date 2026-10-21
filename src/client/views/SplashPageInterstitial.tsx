@@ -22,7 +22,7 @@ export const SplashPageInterstitial: React.FC<SplashPageInterstitialProps> = ({
   title = 'Sponsored Destination',
   bannerImage,
   customMessage = 'You are being redirected to your destination. Please wait a moment...',
-  countdownSeconds = 5,
+  countdownSeconds = 10,
   adConfig: initialAdConfig,
 }) => {
   const [timeLeft, setTimeLeft] = useState(countdownSeconds);

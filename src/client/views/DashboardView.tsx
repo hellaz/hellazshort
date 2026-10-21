@@ -58,6 +58,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
 }) => {
   const isProMember = user?.tier === 'pro' || userRole === 'admin' || userRole === 'owner';
+  const isAdminOrOwner = userRole === 'admin' || userRole === 'owner' || user?.role === 'admin' || user?.role === 'owner';
   const { showToast } = useToast();
 
   const [links, setLinks] = useState<LinkType[]>([]);
@@ -149,7 +150,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Splash Interstitial Configuration
   const [showSplashConfig, setShowSplashConfig] = useState(false);
   const [splashEnabled, setSplashEnabled] = useState(false);
-  const [splashCountdown, setSplashCountdown] = useState(5);
+  const [splashCountdown, setSplashCountdown] = useState(10);
   const [splashTitle, setSplashTitle] = useState('Sponsored Destination');
   const [splashMessage, setSplashMessage] = useState('You will be redirected to your destination shortly.');
   const [splashBannerUrl, setSplashBannerUrl] = useState('');
@@ -321,7 +322,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setFetchingOg(false);
 
 
-    setSplashCountdown(5);
+    setSplashCountdown(10);
     setSplashTitle('Sponsored Destination');
     setSplashMessage('You will be redirected to your destination shortly.');
     setSplashBannerUrl('');
@@ -370,7 +371,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     setFormMaxClicks(meta.max_clicks ? String(meta.max_clicks) : '');
     setSplashEnabled(Boolean(meta.splash?.enabled));
-    setSplashCountdown(meta.splash?.countdown || 5);
+    setSplashCountdown(meta.splash?.countdown || 10);
     setSplashTitle(meta.splash?.title || 'Sponsored Destination');
     setSplashMessage(meta.splash?.message || '');
     setSplashBannerUrl(meta.splash?.banner_url || '');
@@ -619,7 +620,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       if (splashEnabled) {
         metadataObj.splash = {
           enabled: true,
-          countdown: Number(splashCountdown) || 5,
+          countdown: Number(splashCountdown) || 10,
           title: splashTitle.trim() || 'Sponsored Destination',
           message: splashMessage.trim() || '',
           banner_url: splashBannerUrl.trim() || undefined,
@@ -2323,31 +2324,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Ad Separation & Fallback Section */}
-                        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                              Ad Unit Separation &amp; Platform Fallback
-                            </label>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border self-start sm:self-auto ${
-                              splashAdCode.trim() || splashBannerUrl.trim()
-                                ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
-                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            }`}>
-                              {splashAdCode.trim() || splashBannerUrl.trim() ? '✨ Link-Specific Custom Ad' : '🛡️ Inherits Admin Global Ad Network'}
-                            </span>
+                        {/* Ad Separation & Fallback Section (Admin/Owner Only) */}
+                        {isAdminOrOwner && (
+                          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                                Ad Unit Separation &amp; Platform Fallback
+                              </label>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border self-start sm:self-auto ${
+                                splashAdCode.trim() || splashBannerUrl.trim()
+                                  ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              }`}>
+                                {splashAdCode.trim() || splashBannerUrl.trim() ? '✨ Link-Specific Custom Ad' : '🛡️ Inherits Admin Global Ad Network'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                              <strong>Fallback Guarantee:</strong> If left blank, this splash page automatically serves the administrator's global platform ad network (Google AdSense or platform campaigns). Providing your own custom script tag below overrides platform ads for this specific link.
+                            </p>
+                            <textarea
+                              rows={2}
+                              placeholder="<script async src='https://pagead2.googlesyndication.com/...'></script> or custom HTML/JS ad snippet"
+                              value={splashAdCode}
+                              onChange={(e) => setSplashAdCode(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs font-mono rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                            />
                           </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            <strong>Fallback Guarantee:</strong> If left blank, this splash page automatically serves the administrator's global platform ad network (Google AdSense or platform campaigns). Providing your own custom script tag below overrides platform ads for this specific link.
-                          </p>
-                          <textarea
-                            rows={2}
-                            placeholder="<script async src='https://pagead2.googlesyndication.com/...'></script> or custom HTML/JS ad snippet"
-                            value={splashAdCode}
-                            onChange={(e) => setSplashAdCode(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs font-mono rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
-                          />
-                        </div>
+                        )}
 
                         {/* QR Code on Splash Page Toggle */}
                         <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">

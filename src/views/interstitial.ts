@@ -94,10 +94,11 @@ export function renderSplashPage(
   shortUrlParam?: string,
   linkDescription?: string,
   linkTitle?: string,
-  referralUrl?: string
+  referralUrl?: string,
+  ogMeta?: { og_title?: string; og_description?: string; og_image?: string }
 ): string {
-  // Enforce default maximum 10s countdown
-  const countdown = Math.min(Math.max(Number(splash.countdown) || 5, 1), 10);
+  // Enforce default 10s countdown (supported up to 30s)
+  const countdown = Math.min(Math.max(Number(splash.countdown) || 10, 1), 30);
   const title = escapeHtml(splash.title || 'Sponsored Destination');
   const customMessage = escapeHtml(splash.message || 'Your destination link will be ready when the countdown completes.');
   const bannerUrl = splash.banner_url ? escapeHtml(splash.banner_url) : '';
@@ -109,8 +110,9 @@ export function renderSplashPage(
   const safeDest = escapeHtml(destinationUrl);
   const jsonDest = JSON.stringify(destinationUrl);
   const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : '';
-  const safeLinkTitle = linkTitle ? escapeHtml(linkTitle) : '';
-  const safeLinkDesc = linkDescription ? escapeHtml(linkDescription) : '';
+  const safeLinkTitle = escapeHtml(linkTitle || ogMeta?.og_title || '');
+  const safeLinkDesc = escapeHtml(linkDescription || ogMeta?.og_description || '');
+  const safeLinkImage = ogMeta?.og_image ? escapeHtml(ogMeta.og_image) : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -206,11 +208,14 @@ export function renderSplashPage(
       ${title && title !== 'Sponsored Destination' ? `<h2 style="font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">${title}</h2>` : ''}
       <p>${customMessage}</p>
       
-      ${(safeLinkTitle || safeLinkDesc) ? `
-      <div style="margin-top: 1.25rem; padding: 1rem; background: rgba(79, 70, 229, 0.1); border: 1px solid rgba(79, 70, 229, 0.2); border-radius: 14px; text-align: left;">
-        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #818cf8; font-weight: 700; margin-bottom: 0.5rem;">Destination Preview</div>
-        ${safeLinkTitle ? `<div style="font-weight: 700; color: #fff; font-size: 0.9rem; margin-bottom: 0.25rem;">${safeLinkTitle}</div>` : ''}
-        ${safeLinkDesc ? `<div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">${safeLinkDesc}</div>` : ''}
+      ${(safeLinkTitle || safeLinkDesc || safeLinkImage) ? `
+      <div style="margin-top: 1.25rem; padding: 1rem; background: rgba(79, 70, 229, 0.1); border: 1px solid rgba(79, 70, 229, 0.2); border-radius: 14px; text-align: left; display: flex; gap: 12px; align-items: center;">
+        ${safeLinkImage ? `<img src="${safeLinkImage}" alt="Target Preview" style="width: 56px; height: 56px; object-fit: cover; border-radius: 10px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1);" />` : ''}
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #818cf8; font-weight: 700; margin-bottom: 0.25rem;">Destination Preview</div>
+          ${safeLinkTitle ? `<div style="font-weight: 700; color: #fff; font-size: 0.9rem; margin-bottom: 0.25rem; line-height: 1.3;">${safeLinkTitle}</div>` : ''}
+          ${safeLinkDesc ? `<div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${safeLinkDesc}</div>` : ''}
+        </div>
       </div>
       ` : ''}
 

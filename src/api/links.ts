@@ -672,15 +672,25 @@ linksRouter.post('/', createLinkRateLimit, optionalAuth, validateJson(createLink
     throw new HTTPException(400, { message: 'Infinite redirect loop detected.' });
   }
 
-  // Automatic Metadata Capture: if title/description missing, attempt fetch
+  // Automatic Metadata Capture: if title/description/og_meta missing, attempt fetch
   let finalTitle = validated.title ? sanitizeHtml(validated.title) : undefined;
   let finalDescription = validated.description ? sanitizeHtml(validated.description) : undefined;
+  let autoOgMeta = validated.og_meta;
 
-  if ((!finalTitle || !finalDescription) && isPubliclyFetchableUrl(validated.destination_url)) {
+  if ((!finalTitle || !finalDescription || !autoOgMeta) && isPubliclyFetchableUrl(validated.destination_url)) {
     try {
       const scraped = await fetchOgTags(validated.destination_url);
       if (!finalTitle && scraped.og_title) finalTitle = sanitizeHtml(scraped.og_title);
       if (!finalDescription && scraped.og_description) finalDescription = sanitizeHtml(scraped.og_description);
+      if (!autoOgMeta && (scraped.og_title || scraped.og_description || scraped.og_image)) {
+        autoOgMeta = {
+          og_title: scraped.og_title,
+          og_description: scraped.og_description,
+          og_image: scraped.og_image,
+          og_type: scraped.og_type || 'website',
+          twitter_card: scraped.twitter_card || 'summary_large_image',
+        };
+      }
     } catch (e) {
       console.warn('[OG CAPTURE] Failed to auto-scrape:', e);
     }
@@ -731,7 +741,7 @@ linksRouter.post('/', createLinkRateLimit, optionalAuth, validateJson(createLink
   if (!metadataObj.splash && validated.redirect_type !== 'direct') {
     metadataObj.splash = {
       enabled: true,
-      countdown: 5,
+      countdown: 10,
       title: 'Sponsored Destination',
       message: 'You will be redirected to your destination shortly.',
       button_text: 'Proceed to Destination'
@@ -783,8 +793,8 @@ linksRouter.post('/', createLinkRateLimit, optionalAuth, validateJson(createLink
     os_redirects: validated.os_redirects,
   });
 
-  if (validated.og_meta && (validated.og_meta.og_title || validated.og_meta.og_description || validated.og_meta.og_image)) {
-    await upsertOgMeta(c.env, link.id, validated.og_meta);
+  if (autoOgMeta && (autoOgMeta.og_title || autoOgMeta.og_description || autoOgMeta.og_image)) {
+    await upsertOgMeta(c.env, link.id, autoOgMeta);
   }
 
   if (pixelIds && pixelIds.length > 0) await saveLinkExtras(c.env, link.id, { pixel_ids: pixelIds });

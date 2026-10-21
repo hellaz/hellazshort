@@ -301,29 +301,27 @@ export async function listDomains(env: Env, accountId?: string): Promise<Domain[
 }
 
 export async function getDomainByRoutingPath(env: Env, domainName: string, path: string): Promise<{ domain: Domain, matchedRoute: string } | null> {
-  // Try cache first
-  let domains = await getCachedDomain(env, domainName);
+  const normalizedDomain = domainName.replace(/\/+$/, '').toLowerCase().trim();
 
-  if (!domains) {
-    // DEBUG: console.log('[DOMAIN CACHE] Cache miss for domain:', domainName);
-    // Cache miss: Query database for ALL domains with this name (handles multiple domains)
+  // Try cache first
+  let domains = await getCachedDomain(env, normalizedDomain);
+
+  if (!domains || domains.length === 0) {
+    // DEBUG: console.log('[DOMAIN CACHE] Cache miss for domain:', normalizedDomain);
+    // Cache miss: Query database for ALL domains matching this domain name or normalized_domain_name
     const allDomains = await env.DB.prepare(
-      `SELECT * FROM domains WHERE domain_name = ? AND status = 'active' ORDER BY created_at ASC`
-    ).bind(domainName).all<Domain>();
+      `SELECT * FROM domains WHERE (LOWER(domain_name) = ? OR normalized_domain_name = ?) AND status = 'active' ORDER BY created_at ASC`
+    ).bind(normalizedDomain, normalizedDomain).all<Domain>();
 
     domains = allDomains.results || [];
 
-    // Cache the result to prevent race conditions and cascading cache misses
-    // Awaited to ensure cache is populated before next request (consistent with other cache writes)
-    try {
-      await setCachedDomain(env, domainName, domains);
-      // DEBUG: console.log('[DOMAIN CACHE] Domain cached for:', domainName, '- count:', domains.length);
-    } catch (err) {
-      console.error('[DOMAIN CACHE] Failed to cache domain:', err);
-      // Continue - cache miss is acceptable, but we tried to cache it
+    if (domains.length > 0) {
+      try {
+        await setCachedDomain(env, normalizedDomain, domains);
+      } catch (err) {
+        console.error('[DOMAIN CACHE] Failed to cache domain:', err);
+      }
     }
-  } else {
-    // DEBUG: console.log('[DOMAIN CACHE] Cache hit for domain:', domainName, '- count:', domains.length);
   }
 
   // Match routing path (same logic as before, but on cached/fetched domains)

@@ -383,11 +383,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
             </div>
 
             {referralCode && (
-              <div className="mb-4 p-3 bg-emerald-950/50 border border-emerald-500/30 rounded-xl flex items-center gap-2.5 text-xs text-emerald-300">
-                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="mb-4 p-3 bg-indigo-950/50 border border-indigo-500/30 rounded-xl flex items-center gap-2.5 text-xs text-indigo-300">
+                <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
                 <div className="text-[11px] leading-relaxed">
-                  <span className="font-bold">Affiliate Invite:</span> You were referred by{' '}
-                  <strong className="text-white underline underline-offset-2">@{referralCode}</strong>. You'll receive full platform access, and your referrer will receive +50 link credits!
+                  <span className="font-bold">Affiliate Invite:</span> You were invited by{' '}
+                  <strong className="text-white underline underline-offset-2">@{referralCode}</strong>. Create your account below to get started!
                 </div>
               </div>
             )}
